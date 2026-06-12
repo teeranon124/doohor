@@ -1,4 +1,0 @@
-#!/bin/sh
-
-cp .env.sample .env
-poetry install
