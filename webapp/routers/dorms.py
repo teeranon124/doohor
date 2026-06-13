@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from webapp.db import supabase_admin
+from supabase import Client
+from webapp.dependencies import get_supabase_client
 from webapp.utils import (
     date_db_to_fe,
     get_thai_month_name,
@@ -18,9 +19,9 @@ class DormCreateUpdate(BaseModel):
     electric_rate: float = 8.0
 
 @router.get("")
-async def get_dorms():
+async def get_dorms(client: Client = Depends(get_supabase_client)):
     try:
-        res = supabase_admin.table("dorms").select("*").execute()
+        res = client.table("dorms").select("*").execute()
         # Map DB snake_case fields to camelCase expected by FE
         dorms = []
         for d in res.data:
@@ -38,9 +39,15 @@ async def get_dorms():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("")
-async def create_dorm(req: DormCreateUpdate):
+async def create_dorm(req: DormCreateUpdate, client: Client = Depends(get_supabase_client)):
     try:
+        owner_id = getattr(client, "user_id", None)
+        if not owner_id:
+            user_res = client.auth.get_user()
+            owner_id = user_res.user.id
+
         data = {
+            "owner_id": owner_id,
             "name": req.name,
             "address": req.address or "",
             "promptpay": req.promptpay or "",
@@ -48,7 +55,7 @@ async def create_dorm(req: DormCreateUpdate):
             "water_rate": req.water_rate,
             "electric_rate": req.electric_rate
         }
-        res = supabase_admin.table("dorms").insert(data).execute()
+        res = client.table("dorms").insert(data).execute()
         if not res.data:
             raise HTTPException(status_code=400, detail="ไม่สามารถเพิ่มหอพักได้")
         
@@ -58,7 +65,7 @@ async def create_dorm(req: DormCreateUpdate):
             {"dorm_id": d["id"], "name": "Standard", "base_rent": 4500, "base_deposit": 9000},
             {"dorm_id": d["id"], "name": "VIP", "base_rent": 6500, "base_deposit": 13000}
         ]
-        supabase_admin.table("room_types").insert(default_types).execute()
+        client.table("room_types").insert(default_types).execute()
 
         return {
             "id": str(d["id"]),
@@ -70,10 +77,12 @@ async def create_dorm(req: DormCreateUpdate):
             "electricRate": float(d["electric_rate"])
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{dorm_id}")
-async def update_dorm(dorm_id: str, req: DormCreateUpdate):
+async def update_dorm(dorm_id: str, req: DormCreateUpdate, client: Client = Depends(get_supabase_client)):
     try:
         data = {
             "name": req.name,
@@ -83,7 +92,7 @@ async def update_dorm(dorm_id: str, req: DormCreateUpdate):
             "water_rate": req.water_rate,
             "electric_rate": req.electric_rate
         }
-        res = supabase_admin.table("dorms").update(data).eq("id", dorm_id).execute()
+        res = client.table("dorms").update(data).eq("id", dorm_id).execute()
         if not res.data:
             raise HTTPException(status_code=404, detail="ไม่พบหอพักที่ต้องการแก้ไข")
         d = res.data[0]
@@ -100,10 +109,9 @@ async def update_dorm(dorm_id: str, req: DormCreateUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{dorm_id}/details")
-async def get_dorm_details(dorm_id: str):
+async def get_dorm_details(dorm_id: str, client: Client = Depends(get_supabase_client)):
     """
-    Get everything inside a dorm: room types, rooms, bills, repairs, deposit history.
-    This mimics the nested structure of a dorm object in FE.
+    Get everything inside a dorm: room types, rooms, bills, repairs, deposit history in ONE query.
     """
     try:
         import uuid
@@ -113,25 +121,27 @@ async def get_dorm_details(dorm_id: str):
         except ValueError:
             is_uuid = False
 
+        # If not a valid UUID (e.g. 'D001'), retrieve the first dorm from auth's owned list
         if not is_uuid:
-            # Fallback to the first dorm in the database if dorm_id is not a valid UUID (e.g. 'D001')
-            dorm_res = supabase_admin.table("dorms").select("*").limit(1).execute()
+            dorm_res = client.table("dorms").select("id").limit(1).execute()
             if not dorm_res.data:
                 raise HTTPException(status_code=404, detail="ไม่พบหอพัก")
-            d = dorm_res.data[0]
-            dorm_id = str(d["id"])
-        else:
-            # Fetch dorm metadata
-            dorm_res = supabase_admin.table("dorms").select("*").eq("id", dorm_id).execute()
-            if not dorm_res.data:
-                raise HTTPException(status_code=404, detail="ไม่พบหอพัก")
-            d = dorm_res.data[0]
+            dorm_id = str(dorm_res.data[0]["id"])
 
-        # Fetch room types
-        rt_res = supabase_admin.table("room_types").select("*").eq("dorm_id", dorm_id).execute()
+        # Fetch entire dorm hierarchy in a single DB query
+        res = client.table("dorms").select(
+            "*, room_types(*), rooms(*, leases(*), deposit_history(*)), bills(*), repairs(*)"
+        ).eq("id", dorm_id).single().execute()
+        
+        if not res.data:
+            raise HTTPException(status_code=404, detail="ไม่พบหอพัก")
+        
+        d = res.data
+
+        # Map Room Types
         room_types = []
         room_type_name_map = {}
-        for rt in rt_res.data:
+        for rt in d.get("room_types") or []:
             room_types.append({
                 "id": str(rt["id"]),
                 "name": rt["name"],
@@ -140,38 +150,77 @@ async def get_dorm_details(dorm_id: str):
             })
             room_type_name_map[rt["id"]] = rt["name"]
 
-        # Fetch rooms
-        rooms_res = supabase_admin.table("rooms").select("*").eq("dorm_id", dorm_id).execute()
+        # Map Rooms & Flatten Deposit History
         rooms = []
         room_id_to_number_map = {}
-        room_uuids = []
-        for r in rooms_res.data:
-            room_uuids.append(r["id"])
+        deposit_history = []
+        for r in d.get("rooms") or []:
             room_id_to_number_map[r["id"]] = r["room_number"]
+            
+            # Find the active lease for this room
+            active_lease = None
+            for lease in r.get("leases") or []:
+                if lease["status"] == "active":
+                    active_lease = lease
+                    break
+            
+            if active_lease:
+                lease_id = str(active_lease["id"])
+                tenant_name = active_lease["tenant_name"]
+                move_in = date_db_to_fe(active_lease["move_in_date"])
+                contract_start = date_db_to_fe(active_lease["contract_start"])
+                contract_end = date_db_to_fe(active_lease["contract_end"])
+                deposit_amt = float(active_lease["deposit_amount"] or 0)
+                deposit_stat = active_lease["deposit_status"] or "none"
+                deposit_note = active_lease["deposit_note"] or ""
+            else:
+                lease_id = str(r["id"]) # Fallback to physical room ID if vacant
+                tenant_name = None
+                move_in = None
+                contract_start = None
+                contract_end = None
+                deposit_amt = 0.0
+                deposit_stat = "none"
+                deposit_note = ""
+
             rooms.append({
                 "id": r["room_number"],
-                "uuid": str(r["id"]),
+                "uuid": lease_id, # Frontend gets this key as tenant login key
                 "type": room_type_name_map.get(r["type_id"], "Standard"),
                 "rentPrice": float(r["rent_price"]),
                 "status": r["status"],
-                "tenant": r["tenant_name"],
-                "moveInDate": date_db_to_fe(r["move_in_date"]),
-                "contractStart": date_db_to_fe(r["contract_start"]),
-                "contractEnd": date_db_to_fe(r["contract_end"]),
-                "depositAmount": float(r["deposit_amount"]),
-                "depositStatus": r["deposit_status"] or "none",
-                "depositNote": r["deposit_note"] or "",
+                "tenant": tenant_name,
+                "moveInDate": move_in,
+                "contractStart": contract_start,
+                "contractEnd": contract_end,
+                "depositAmount": deposit_amt,
+                "depositStatus": deposit_stat,
+                "depositNote": deposit_note,
                 "lastWaterMeter": float(r["last_water_meter"]),
-                "lastElectricMeter": float(r["last_electric_meter"])
+                "lastElectricMeter": float(r["last_electric_meter"]),
+                "roomUuid": str(r["id"]) # Physical room UUID
             })
+
+            # Map deposit history from room records
+            for dep in r.get("deposit_history") or []:
+                deposit_history.append({
+                    "id": str(dep["id"]),
+                    "room": r["room_number"],
+                    "type": dep["type"],
+                    "amount": float(dep["amount"]),
+                    "date": date_db_to_fe(dep["created_at"]),
+                    "note": dep["note"] or ""
+                })
 
         # Sort rooms by room number/id
         rooms.sort(key=lambda x: x["id"])
+        
+        # Sort deposit history by date desc
+        deposit_history.sort(key=lambda x: x["date"] or "", reverse=True)
 
-        # Fetch bills
-        bills_res = supabase_admin.table("bills").select("*").eq("dorm_id", dorm_id).execute()
+        # Map Bills
         bills = []
-        for b in bills_res.data:
+        for b in d.get("bills") or []:
             extra_charges = b.get("extra_charges") or []
             other_fees = sum(item.get("amt", 0) for item in extra_charges)
             other_desc = ", ".join(item.get("desc", "") for item in extra_charges) if extra_charges else ""
@@ -196,10 +245,9 @@ async def get_dorm_details(dorm_id: str):
                 "slipImageUrl": b.get("slip_image_url") or ""
             })
 
-        # Fetch repairs
-        repairs_res = supabase_admin.table("repairs").select("*").eq("dorm_id", dorm_id).execute()
+        # Map Repairs
         repairs = []
-        for rep in repairs_res.data:
+        for rep in d.get("repairs") or []:
             repairs.append({
                 "id": str(rep["id"]),
                 "room": room_id_to_number_map.get(rep["room_id"], ""),
@@ -207,20 +255,6 @@ async def get_dorm_details(dorm_id: str):
                 "date": date_db_to_fe(rep["created_at"]),
                 "status": rep["status"]
             })
-
-        # Fetch deposit history for all rooms in this dorm
-        deposit_history = []
-        if room_uuids:
-            dep_res = supabase_admin.table("deposit_history").select("*").in_("room_id", room_uuids).execute()
-            for dep in dep_res.data:
-                deposit_history.append({
-                    "id": str(dep["id"]),
-                    "room": room_id_to_number_map.get(dep["room_id"], ""),
-                    "type": dep["type"],
-                    "amount": float(dep["amount"]),
-                    "date": date_db_to_fe(dep["created_at"]),
-                    "note": dep["note"] or ""
-                })
 
         return {
             "id": str(d["id"]),
@@ -235,6 +269,42 @@ async def get_dorm_details(dorm_id: str):
             "bills": bills,
             "repairs": repairs,
             "depositHistory": deposit_history
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{dorm_id}/dashboard-stats")
+async def get_dorm_dashboard_stats(dorm_id: str, client: Client = Depends(get_supabase_client)):
+    try:
+        # Try calling the database RPC
+        res = client.rpc("get_dashboard_stats", {"dorm_uuid": dorm_id}).execute()
+        if res.data:
+            return res.data
+            
+        # Fallback to simple queries if RPC is not loaded in SQL editor yet
+        return await _get_stats_fallback(client, dorm_id)
+    except Exception:
+        # Fallback in case RPC execution throws database errors
+        return await _get_stats_fallback(client, dorm_id)
+
+async def _get_stats_fallback(client: Client, dorm_id: str):
+    try:
+        rooms_res = client.table("rooms").select("status").eq("dorm_id", dorm_id).execute()
+        rooms = rooms_res.data or []
+        total = len(rooms)
+        occ = sum(1 for r in rooms if r["status"] == "occupied")
+        
+        bills_res = client.table("bills").select("total").eq("dorm_id", dorm_id).in_("status", ["unpaid", "pending_approval"]).execute()
+        income = sum(float(b["total"]) for b in (bills_res.data or []))
+        
+        repairs_res = client.table("repairs").select("id").eq("dorm_id", dorm_id).eq("status", "pending").execute()
+        repairs_count = len(repairs_res.data or [])
+        
+        return {
+            "occupied_rooms": occ,
+            "total_rooms": total,
+            "pending_income": income,
+            "pending_repairs": repairs_count
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

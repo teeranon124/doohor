@@ -8,6 +8,7 @@ import Modals from "@/components/Modals";
 
 function TenantLayoutInner({ children }: { children: React.ReactNode }) {
   const {
+    data,
     role,
     setRole,
     tenantRoom,
@@ -48,12 +49,13 @@ function TenantLayoutInner({ children }: { children: React.ReactNode }) {
   }, [directKey]);
 
   const isLoginPage = pathname === "/tenant/login";
+  const isHydrated = data !== null;
 
   useEffect(() => {
-    if (!loading && !directKey && role !== "tenant" && !isLoginPage) {
+    if (isHydrated && !loading && !directKey && role !== "tenant" && !isLoginPage) {
       router.push("/tenant/login");
     }
-  }, [role, loading, directKey, isLoginPage]);
+  }, [role, loading, directKey, isLoginPage, isHydrated]);
 
   if (isLoginPage) {
     return (
@@ -64,7 +66,7 @@ function TenantLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (loading || (!directKey && role !== "tenant")) {
+  if (!isHydrated || (!directKey && role !== "tenant")) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f4f3ef" }}>
         <div style={{ fontFamily: "Sarabun, sans-serif", fontSize: "16px", color: "#6b6960" }}>
@@ -123,7 +125,15 @@ function TenantLayoutInner({ children }: { children: React.ReactNode }) {
         })}
       </div>
 
-      <main style={{ paddingBottom: 80 }}>{children}</main>
+      <main style={{ paddingBottom: 80 }}>
+        {loading && !dorm ? (
+          <div style={{ display: "flex", padding: "60px", justifyContent: "center", color: "var(--t3)", fontFamily: "Sarabun, sans-serif", fontSize: "15px" }}>
+            กำลังโหลดข้อมูล...
+          </div>
+        ) : (
+          children
+        )}
+      </main>
 
       {/* Bottom Nav (Mobile) */}
       <div className="btm-nav">

@@ -18,18 +18,9 @@ export default function TenantLoginPage() {
     }
   }, []);
 
-  const occupiedRooms = dorm?.rooms?.filter((r: any) => r.status === "occupied") || [];
-
   const handlePinInput = (val: string) => {
     setPinVal(val);
     setErrorMsg("");
-  };
-
-  const handleSelectChip = (roomId: string) => {
-    setPinVal(roomId);
-    setErrorMsg("");
-    // Automatically confirm when clicked
-    doConfirm(roomId);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -38,13 +29,17 @@ export default function TenantLoginPage() {
     }
   };
 
-  const doConfirm = async (roomNumber: string) => {
-    const targetRoom = roomNumber.trim();
-    if (!targetRoom) return;
+  const doConfirm = async (roomKey: string) => {
+    const targetKey = roomKey.trim();
+    if (!targetKey) return;
+
+    if (targetKey.length !== 36) {
+      setErrorMsg("รหัสเข้าใช้งานไม่ถูกต้อง (ต้องเป็นรหัส UUID 36 หลัก)");
+      return;
+    }
 
     try {
-      // 1. Try to login via API
-      const res = await api.loginTenant({ room_number: targetRoom, dorm_id: dorm?.id });
+      const res = await api.getTenantSession(targetKey);
       setRole("tenant");
       setTenantRoom(res.room_id);
       localStorage.setItem("dormy_role", "tenant");
@@ -53,31 +48,7 @@ export default function TenantLoginPage() {
       localStorage.setItem("dormy_tenant_dorm_id", res.dorm_id);
       router.push("/tenant/home");
     } catch (err: any) {
-      console.warn("API Tenant login failed, falling back to local:", err);
-      // 2. Fallback to local mockup search
-      if (!dorm || !dorm.rooms) {
-        setErrorMsg("ระบบขัดข้อง กรุณารีเฟรช");
-        return;
-      }
-      const room = dorm.rooms.find(
-        (r: any) => r.id === targetRoom || r.id === targetRoom.replace(/^0+/, "")
-      );
-      if (!room) {
-        setErrorMsg("ไม่พบหมายเลขห้องนี้");
-        return;
-      }
-      if (room.status !== "occupied") {
-        setErrorMsg("ห้องนี้ยังไม่มีผู้เช่า");
-        return;
-      }
-      // Successful local login
-      setRole("tenant");
-      setTenantRoom(room.uuid || room.id);
-      localStorage.setItem("dormy_role", "tenant");
-      localStorage.setItem("dormy_tenant_room", room.uuid || room.id);
-      localStorage.setItem("dormy_tenant_room_number", room.id);
-      localStorage.setItem("dormy_tenant_dorm_id", dorm.id);
-      router.push("/tenant/home");
+      setErrorMsg(err.message || "ไม่พบรหัสเข้าใช้งานห้องพักนี้ หรือห้องยังไม่มีผู้เช่า");
     }
   };
 
@@ -86,35 +57,29 @@ export default function TenantLoginPage() {
       <div id="pin-screen" style={{ display: "flex" }}>
         <div className="pin-box">
           <div className="pin-title">เข้าสู่ระบบผู้เช่า</div>
-          <div className="pin-desc">พิมพ์หมายเลขห้องของคุณ</div>
+          <div className="pin-desc">กรอกรหัสเข้าใช้งานห้องพัก (Room Key)</div>
           <input
             ref={inputRef}
             className="pin-input"
             id="pin-inp"
             type="text"
-            maxLength={4}
-            placeholder="101"
+            maxLength={36}
+            placeholder="รหัส 36 หลัก เช่น f3a1e2..."
             autoComplete="off"
             value={pinVal}
             onChange={(e) => handlePinInput(e.target.value)}
             onKeyDown={handleKeyPress}
+            style={{ 
+              fontSize: "14px", 
+              letterSpacing: "0px",
+              textAlign: "center"
+            }}
           />
           <div className="pin-err" id="pin-err">
             {errorMsg}
           </div>
           <div className="hint" style={{ textAlign: "center", marginTop: "6px" }}>
-            กดห้องด้านล่าง หรือพิมพ์แล้วกด Enter
-          </div>
-          <div className="pin-chips mt3" id="pin-chips">
-            {occupiedRooms.length > 0 ? (
-              occupiedRooms.map((r: any) => (
-                <span key={r.id} className="chip" onClick={() => handleSelectChip(r.id)}>
-                  {r.id}
-                </span>
-              ))
-            ) : (
-              <span style={{ fontSize: "12px", color: "var(--t3)" }}>ไม่มีห้องที่มีผู้เช่า</span>
-            )}
+            กรอกรหัสผ่าน 36 หลักที่ได้รับจากเจ้าของหอพักของคุณ เพื่อเข้าสู่ระบบ
           </div>
           <div style={{ display: "flex", gap: "8px", marginTop: "18px" }}>
             <button className="btn bg f1" onClick={() => router.push("/")}>
@@ -123,7 +88,7 @@ export default function TenantLoginPage() {
             <button
               className="btn bp f1"
               id="pin-ok"
-              disabled={!pinVal.trim()}
+              disabled={pinVal.trim().length !== 36}
               onClick={() => doConfirm(pinVal)}
             >
               เข้าใช้งาน

@@ -26,14 +26,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [isDormDropOpen, setIsDormDropOpen] = useState(false);
 
-  // Redirect to landing if not logged in as admin
-  useEffect(() => {
-    if (!loading && role !== "admin") {
-      router.push("/");
-    }
-  }, [role, loading]);
+  const isLoginPage = pathname === "/admin/login";
 
-  if (loading || role !== "admin") {
+  const isHydrated = data !== null;
+
+  useEffect(() => {
+    if (isHydrated && !loading && role !== "admin" && !isLoginPage) {
+      router.push("/admin/login");
+    }
+  }, [role, loading, isLoginPage, isHydrated]);
+
+  if (isLoginPage) {
+    return (
+      <>
+        {children}
+        <div id="toast-wrap"></div>
+      </>
+    );
+  }
+
+  if (!isHydrated || role !== "admin") {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f4f3ef" }}>
         <div style={{ fontFamily: "Sarabun, sans-serif", fontSize: "16px", color: "#6b6960" }}>
@@ -126,7 +138,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         })}
       </div>
 
-      <main style={{ paddingBottom: 80 }}>{children}</main>
+      <main style={{ paddingBottom: 80 }}>
+        {loading && !dorm ? (
+          <div style={{ display: "flex", padding: "60px", justifyContent: "center", color: "var(--t3)", fontFamily: "Sarabun, sans-serif", fontSize: "15px" }}>
+            กำลังโหลดข้อมูล...
+          </div>
+        ) : (
+          children
+        )}
+      </main>
 
       {/* Bottom Nav (Mobile) */}
       <div className="btm-nav">

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { api } from "@/utils/api";
+import { api, getCookie } from "@/utils/api";
 
 const VERSION = '5.1';
 const STORE = 'dormy_v5';
@@ -10,39 +10,8 @@ export const TH_MONTHS = ['มกราคม','กุมภาพันธ์',
 
 const DEFAULT_DATA = {
   version: VERSION,
-  activeDorm: 'D001',
-  dorms: [
-    {
-      id: 'D001',
-      name: 'Dormy Residence',
-      addr: 'สาขาหลัก',
-      promptpay: '081-XXX-XXXX',
-      waterRate: 18,
-      electricRate: 8,
-      dueDayOfMonth: 5,
-      roomTypes: [
-        { id: 'T1', name: 'Standard', rent: 4500, deposit: 9000 },
-        { id: 'T2', name: 'VIP', rent: 6500, deposit: 13000 }
-      ],
-      rooms: [
-        { id:'101', type:'Standard', rentPrice:4500, status:'occupied', tenant:'คุณสมชาย ใจดี', moveInDate:'01/01/2567', contractStart:'01/01/2567', contractEnd:'31/12/2567', depositAmount:9000, depositStatus:'held', depositNote:'', lastWaterMeter:1250, lastElectricMeter:4200 },
-        { id:'102', type:'Standard', rentPrice:4500, status:'vacant', tenant:null, moveInDate:null, contractStart:null, contractEnd:null, depositAmount:0, depositStatus:'none', depositNote:'', lastWaterMeter:1000, lastElectricMeter:3000 },
-        { id:'103', type:'VIP', rentPrice:6500, status:'occupied', tenant:'คุณประเสริฐ', moveInDate:'01/03/2567', contractStart:'01/03/2567', contractEnd:'28/02/2568', depositAmount:13000, depositStatus:'held', depositNote:'', lastWaterMeter:500, lastElectricMeter:1200 },
-        { id:'201', type:'VIP', rentPrice:6500, status:'occupied', tenant:'คุณสมหญิง รักดี', moveInDate:'01/06/2567', contractStart:'01/06/2567', contractEnd:'31/05/2568', depositAmount:13000, depositStatus:'held', depositNote:'', lastWaterMeter:840, lastElectricMeter:2150 },
-        { id:'202', type:'Standard', rentPrice:4800, status:'vacant', tenant:null, moveInDate:null, contractStart:null, contractEnd:null, depositAmount:0, depositStatus:'none', depositNote:'', lastWaterMeter:0, lastElectricMeter:0 },
-        { id:'301', type:'Standard', rentPrice:4500, status:'occupied', tenant:'คุณมานะ', moveInDate:'01/01/2568', contractStart:'01/01/2568', contractEnd:'31/12/2568', depositAmount:9000, depositStatus:'held', depositNote:'', lastWaterMeter:300, lastElectricMeter:800 },
-        { id:'302', type:'Standard', rentPrice:4500, status:'vacant', tenant:null, moveInDate:null, contractStart:null, contractEnd:null, depositAmount:0, depositStatus:'none', depositNote:'', lastWaterMeter:0, lastElectricMeter:0 },
-      ],
-      bills: [
-        { id:'B001', room:'101', month:'เมษายน', year:2568, issueDate:'25/04/2568', dueDate:'05/05/2568', rent:4500, ws:1240, we:1250, es:4100, ee:4200, otherFees:0, otherDesc:'', total:4500+(10*18)+(100*8), status:'paid', paidDate:'01/05/2568', payNote:'' },
-        { id:'B002', room:'201', month:'พฤษภาคม', year:2568, issueDate:'25/05/2568', dueDate:'05/06/2568', rent:6500, ws:830, we:840, es:2000, ee:2150, otherFees:200, otherDesc:'ค่าส่วนกลาง', total:6500+(10*18)+(150*8)+200, status:'unpaid', paidDate:null, payNote:'' },
-      ],
-      repairs: [],
-      depositHistory: [
-        { id:'D001', room:'101', type:'received', amount:9000, date:'01/01/2567', note:'รับมัดจำเริ่มสัญญา' },
-      ],
-    }
-  ]
+  activeDorm: '',
+  dorms: []
 };
 
 const DormContext = createContext<any>(null);
@@ -105,14 +74,22 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
     const localTenantDormId = localStorage.getItem("dormy_tenant_dorm_id");
     const localActiveDorm = localStorage.getItem("dormy_active_dorm");
 
-    if (localRole) setRole(localRole);
+    // Clear stale admin role if session cookie is missing
+    const token = getCookie("dormy_admin_token");
+    if (localRole === "admin" && !token) {
+      localStorage.removeItem("dormy_role");
+      setRole(null);
+    } else {
+      if (localRole) setRole(localRole);
+    }
+
     if (localTenantRoom) setTenantRoom(localTenantRoom);
     if (localTenantRoomNumber) setTenantRoomNumber(localTenantRoomNumber);
     if (localTenantDormId) setTenantDormId(localTenantDormId);
     
-    // Set active dorm ID
-    const initialDormId = localActiveDorm || DEFAULT_DATA.activeDorm;
-    setActiveDormId(initialDormId);
+    if (localActiveDorm) {
+      setActiveDormId(localActiveDorm);
+    }
 
     const saved = localStorage.getItem(STORE);
     if (saved) {
@@ -120,6 +97,9 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
         const parsed = JSON.parse(saved);
         if (parsed.version === VERSION) {
           setData(parsed);
+          if (parsed.activeDormDetails) {
+            setActiveDormDetails(parsed.activeDormDetails);
+          }
           return;
         }
       } catch (e) {}
@@ -130,29 +110,49 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch from API when role changes or activeDormId changes
   useEffect(() => {
-    if (!data) return;
-
     const syncDorms = async () => {
+      if (!role) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         if (role === "admin") {
-          const dormsList = await api.getDorms();
-          
           let targetDormId = activeDormId;
-          if (!targetDormId && dormsList.length > 0) {
-            targetDormId = dormsList[0].id;
-            setActiveDormId(targetDormId);
-            localStorage.setItem("dormy_active_dorm", targetDormId);
-          }
-
-          setData((prev: any) => ({
-            ...prev,
-            activeDorm: targetDormId,
-            dorms: dormsList
-          }));
+          let dormsList: any[] = [];
+          let details: any = null;
 
           if (targetDormId) {
-            const details = await api.getDormDetails(targetDormId);
+            // Run requests in parallel to optimize latency
+            const [dList, dDetails] = await Promise.all([
+              api.getDorms(),
+              api.getDormDetails(targetDormId)
+            ]);
+            dormsList = dList;
+            details = dDetails;
+          } else {
+            // Run sequentially on first-time load to obtain first dorm ID
+            dormsList = await api.getDorms();
+            if (dormsList.length > 0) {
+              targetDormId = dormsList[0].id;
+              setActiveDormId(targetDormId);
+              localStorage.setItem("dormy_active_dorm", targetDormId);
+              details = await api.getDormDetails(targetDormId);
+            }
+          }
+
+          setData((prev: any) => {
+            const nextData = {
+              ...prev,
+              activeDorm: targetDormId,
+              dorms: dormsList,
+              activeDormDetails: details
+            };
+            localStorage.setItem(STORE, JSON.stringify(nextData));
+            return nextData;
+          });
+
+          if (details) {
             setActiveDormDetails(details);
           }
         } else if (role === "tenant" && tenantRoom) {
@@ -163,37 +163,60 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem("dormy_tenant_room_number", session.room_number);
           localStorage.setItem("dormy_tenant_dorm_id", session.dorm_id);
 
-          const details = await api.getDormDetails(session.dorm_id);
-          setActiveDormDetails(details);
-        } else {
-          // No role set (Landing screen) - hydrate default dorm details
-          useLocalFallback();
+          // Construct a scoped, secure dorm details object using only the active lease session fields
+          const tenantDormObj = {
+            id: session.dorm_id,
+            name: session.dorm_name,
+            address: session.dorm_address,
+            promptpay: session.dorm_promptpay,
+            waterRate: session.dorm_water_rate,
+            electricRate: session.dorm_electric_rate,
+            dueDayOfMonth: session.dorm_due_day_of_month,
+            rooms: [
+              {
+                id: session.room_number,
+                uuid: session.room_id, // This is the active lease UUID (Room Key)
+                status: "occupied",
+                tenant: session.tenant_name,
+                moveInDate: session.move_in_date,
+                contractStart: session.contract_start,
+                contractEnd: session.contract_end,
+                depositAmount: session.deposit_amount,
+                depositStatus: session.deposit_status,
+                depositNote: session.deposit_note,
+                lastWaterMeter: session.last_water_meter,
+                lastElectricMeter: session.last_electric_meter
+              }
+            ]
+          };
+          setData((prev: any) => {
+            const nextData = {
+              ...prev,
+              activeDormDetails: tenantDormObj
+            };
+            localStorage.setItem(STORE, JSON.stringify(nextData));
+            return nextData;
+          });
+          setActiveDormDetails(tenantDormObj);
         }
-      } catch (err) {
-        console.warn("Backend offline or failed, using local fallback.");
-        useLocalFallback();
+      } catch (err: any) {
+        if (err.message && (
+          err.message.includes("โปรดเข้าสู่ระบบใหม่") || 
+          err.message.includes("หมดอายุ") || 
+          err.message.includes("ไม่ถูกต้อง")
+        )) {
+          logout();
+        } else {
+          console.error("API Error in syncDorms:", err);
+          toast(err.message || "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้", "error");
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    const useLocalFallback = () => {
-      const fallbackData = data || DEFAULT_DATA;
-      if (fallbackData.dorms && fallbackData.dorms.length > 0) {
-        const localActiveId = activeDormId || fallbackData.activeDorm || fallbackData.dorms[0].id;
-        const localDorm = fallbackData.dorms.find((x: any) => x.id === localActiveId) || fallbackData.dorms[0];
-        
-        setActiveDormId(localActiveId);
-        setActiveDormDetails(localDorm);
-        
-        if (!data) {
-          setData(fallbackData);
-        }
-      }
-    };
-
     syncDorms();
-  }, [role, activeDormId, tenantRoom, data === null]);
+  }, [role, activeDormId, tenantRoom]);
 
   const saveLocal = (newData: any) => {
     setData(newData);
@@ -206,12 +229,18 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       const details = await api.getDormDetails(id);
+      setData((prev: any) => {
+        const nextData = {
+          ...prev,
+          activeDorm: id,
+          activeDormDetails: details
+        };
+        localStorage.setItem(STORE, JSON.stringify(nextData));
+        return nextData;
+      });
       setActiveDormDetails(details);
-    } catch (err) {
-      if (data && data.dorms) {
-        const localDorm = data.dorms.find((x: any) => x.id === id);
-        if (localDorm) setActiveDormDetails(localDorm);
-      }
+    } catch (err: any) {
+      toast(err.message || "ไม่สามารถเปลี่ยนข้อมูลหอพักได้", "error");
     } finally {
       setLoading(false);
     }
@@ -222,17 +251,31 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
     if (!targetId) return;
     try {
       const details = await api.getDormDetails(targetId);
-      setActiveDormDetails(details);
       
       // Update list as well if admin
       if (role === "admin") {
         const list = await api.getDorms();
-        setData((prev: any) => ({
-          ...prev,
-          dorms: list
-        }));
+        setData((prev: any) => {
+          const nextData = {
+            ...prev,
+            dorms: list,
+            activeDormDetails: details
+          };
+          localStorage.setItem(STORE, JSON.stringify(nextData));
+          return nextData;
+        });
+      } else {
+        setData((prev: any) => {
+          const nextData = {
+            ...prev,
+            activeDormDetails: details
+          };
+          localStorage.setItem(STORE, JSON.stringify(nextData));
+          return nextData;
+        });
       }
-    } catch (err) {
+      setActiveDormDetails(details);
+    } catch (err: any) {
       console.warn("Failed to reload from backend:", err);
     }
   };
@@ -243,10 +286,12 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
     setTenantRoomNumber(null);
     setTenantDormId(null);
     setActiveDormDetails(null);
+    setData(null);
     localStorage.removeItem("dormy_role");
     localStorage.removeItem("dormy_tenant_room");
     localStorage.removeItem("dormy_tenant_room_number");
     localStorage.removeItem("dormy_tenant_dorm_id");
+    document.cookie = "dormy_admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   };
 
   const setSessionRole = (newRole: string | null) => {

@@ -9,7 +9,6 @@ export default function LandingPage() {
   const { setRole, setTenantRoom } = useDorm();
 
   const handleAdminClick = () => {
-    setRole("admin");
     setTenantRoom(null);
     router.push("/admin/dashboard");
   };
