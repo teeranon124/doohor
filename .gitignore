@@ -52,3 +52,22 @@ cython_debug/
 .antigravitycli/
 
 scratch/
+
+# Cloudflare executables
+cloudflared.exe
+*.exe
+
+# IDE settings
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup SQL scripts (keep schema)
+*_migration.sql
+*_trigger.sql
+*.sql.bak
+*.bak
