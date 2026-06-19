@@ -44,3 +44,38 @@ def get_month_int_from_thai(month_name: str) -> int:
         return months.index(month_name) + 1
     except ValueError:
         return 1
+
+def auto_approve_bill_for_order(order: dict) -> None:
+    """
+    Locates the corresponding unpaid or pending bill for the given order
+    and automatically marks it as paid.
+    """
+    from webapp.db import supabase_admin
+    
+    room_id = order.get("room_id")
+    lease_id = order.get("lease_id")
+    slip_url = order.get("slip_url")
+    
+    if not room_id and not lease_id:
+        return
+        
+    # Find the latest unpaid or pending bill
+    bill_query = supabase_admin.table("bills").select("id").in_("status", ["unpaid", "pending_approval"])
+    if lease_id:
+        bill_query = bill_query.eq("lease_id", lease_id)
+    else:
+        bill_query = bill_query.eq("room_id", room_id)
+        
+    bill_res = bill_query.order("billing_year", desc=True).order("billing_month", desc=True).execute()
+    if bill_res.data:
+        bill_id = bill_res.data[0]["id"]
+        today_gregorian = datetime.now().date().isoformat()
+        try:
+            supabase_admin.table("bills").update({
+                "status": "paid",
+                "paid_date": today_gregorian,
+                "slip_image_url": slip_url
+            }).eq("id", bill_id).execute()
+            print(f"Successfully auto-approved bill {bill_id} for order {order.get('id')}")
+        except Exception as e:
+            print(f"Failed to auto-approve bill {bill_id} for order {order.get('id')}: {e}")

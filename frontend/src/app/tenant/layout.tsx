@@ -19,7 +19,8 @@ function TenantLayoutInner({ children }: { children: React.ReactNode }) {
     activeModal,
     closeModal,
     modalData,
-    loading
+    loading,
+    toast
   } = useDorm();
 
   const pathname = usePathname();
@@ -40,24 +41,34 @@ function TenantLayoutInner({ children }: { children: React.ReactNode }) {
           localStorage.setItem("dormy_tenant_room", session.room_id);
           localStorage.setItem("dormy_tenant_room_number", session.room_number);
           localStorage.setItem("dormy_tenant_dorm_id", session.dorm_id);
-        } catch (err) {
+        } catch (err: any) {
           console.error("Direct access token invalid:", err);
+          const isNetworkError = err.message?.includes("Failed to fetch") || err.name === "TypeError";
+          const msg = isNetworkError 
+            ? "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบว่าเซิร์ฟเวอร์รันอยู่"
+            : (err.message || "รหัสเข้าใช้งานห้องพักไม่ถูกต้องหรือสัญญาเช่าหมดอายุแล้ว");
+          toast(msg, "error");
+          if (!isNetworkError) {
+            router.push("/tenant/login");
+          }
         }
       }
     };
     handleDirectAccess();
   }, [directKey]);
 
-  const isLoginPage = pathname === "/tenant/login";
+  const isLoginPage = pathname?.replace(/\/$/, "") === "/tenant/login";
+  const isBindLinePage = pathname?.replace(/\/$/, "") === "/tenant/bind-line";
+  const isPublicPage = isLoginPage || isBindLinePage;
   const isHydrated = data !== null;
 
   useEffect(() => {
-    if (isHydrated && !loading && !directKey && role !== "tenant" && !isLoginPage) {
+    if (isHydrated && !loading && !directKey && role !== "tenant" && !isPublicPage) {
       router.push("/tenant/login");
     }
-  }, [role, loading, directKey, isLoginPage, isHydrated]);
+  }, [role, loading, directKey, isPublicPage, isHydrated]);
 
-  if (isLoginPage) {
+  if (isPublicPage) {
     return (
       <>
         {children}
@@ -78,7 +89,7 @@ function TenantLayoutInner({ children }: { children: React.ReactNode }) {
 
   const tabs = [
     { id: "t-home", lbl: "บิลของฉัน", path: "/tenant/home", ic: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-    { id: "t-history", lbl: "ประวัติ", path: "/tenant/history", ic: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
+    { id: "t-history", lbl: "ประวัติบิล", path: "/tenant/history", ic: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
     { id: "t-contract", lbl: "สัญญา", path: "/tenant/contract", ic: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
     { id: "t-repairs", lbl: "แจ้งซ่อม", path: "/tenant/repairs", ic: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" },
   ];
@@ -92,7 +103,7 @@ function TenantLayoutInner({ children }: { children: React.ReactNode }) {
   const tenantName = activeRoom.tenant || activeRoom.tenant_name || "ผู้เช่า";
 
   return (
-    <div id="app" style={{ display: "flex" }}>
+    <div id="app" style={{ display: "flex", flexDirection: "column" }}>
       <nav className="navbar">
         <div className="nav-brand">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" style={{ width: 18, height: 18 }}>
@@ -126,8 +137,9 @@ function TenantLayoutInner({ children }: { children: React.ReactNode }) {
       </div>
 
       <main style={{ paddingBottom: 80 }}>
-        {loading && !dorm ? (
-          <div style={{ display: "flex", padding: "60px", justifyContent: "center", color: "var(--t3)", fontFamily: "Sarabun, sans-serif", fontSize: "15px" }}>
+        {loading ? (
+          <div style={{ display: "flex", padding: "60px", justifyContent: "center", alignItems: "center", flexDirection: "column", gap: "10px", color: "var(--t3)", fontFamily: "Sarabun, sans-serif", fontSize: "15px" }}>
+            <div className="spinner"></div>
             กำลังโหลดข้อมูล...
           </div>
         ) : (

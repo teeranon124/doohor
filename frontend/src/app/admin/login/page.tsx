@@ -42,14 +42,14 @@ export default function AdminLoginPage() {
       
       // Save JWT token in cookie for middleware
       const secureFlag = window.location.protocol === "https:" ? "; Secure" : "";
-      document.cookie = `dormy_admin_token=${res.session_token}; path=/; max-age=86400; SameSite=Strict${secureFlag}`;
+      document.cookie = `dormy_admin_token=${res.session_token}; path=/; max-age=86400; SameSite=Lax${secureFlag}`;
       
       // Save role in state & local storage
       setRole("admin");
       localStorage.setItem("dormy_role", "admin");
       
       // Redirect to dashboard
-      router.push("/admin/dashboard");
+      window.location.href = "/admin/dashboard";
     } catch (err: any) {
       setErrorMsg(err.message || "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
     } finally {

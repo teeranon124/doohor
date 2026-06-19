@@ -11,7 +11,10 @@ export default function TenantHistoryPage() {
 
   useEffect(() => {
     const fetchBills = async () => {
-      if (!tenantRoom) return;
+      if (!tenantRoom) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const res = await api.getTenantBills(tenantRoom);

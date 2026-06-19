@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_ANON_KEY: str
     SUPABASE_SERVICE_ROLE_KEY: str
+    
+    # LINE Messaging API Credentials
+    LINE_CHANNEL_ACCESS_TOKEN: str | None = None
+    LINE_CHANNEL_SECRET: str | None = None
+    LINE_ADMIN_USER_ID: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

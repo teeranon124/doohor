@@ -10,7 +10,7 @@ export function getCookie(name: string): string {
 
 export async function request(path: string, options: RequestInit = {}) {
   const headers = new Headers(options.headers);
-  if (!headers.has("Content-Type")) {
+  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -64,6 +64,17 @@ export const api = {
   // Repairs
   createRepair: (data: any) => request("/repairs", { method: "POST", body: JSON.stringify(data) }),
   updateRepair: (repairId: string, data: any) => request(`/repairs/${repairId}`, { method: "PUT", body: JSON.stringify(data) }),
+
+  // Orders
+  getOrders: (params: { dorm_id?: string; room_uuid?: string }) => {
+    const query = new URLSearchParams();
+    if (params.dorm_id) query.append("dorm_id", params.dorm_id);
+    if (params.room_uuid) query.append("room_uuid", params.room_uuid);
+    return request(`/orders?${query.toString()}`);
+  },
+  createOrder: (formData: FormData) => request("/orders", { method: "POST", body: formData }),
+  updateOrderStatus: (orderId: string, data: { status: string; admin_note?: string }) => request(`/orders/${orderId}`, { method: "PUT", body: JSON.stringify(data) }),
+  updateTenantLineId: (data: { room_uuid: string; line_user_id: string }) => request("/orders/line-id", { method: "PUT", body: JSON.stringify(data) }),
 };
 
 // Helper: Convert YYYY-MM-DD (Gregorian) -> DD/MM/YYYY (Buddhist Era) for API

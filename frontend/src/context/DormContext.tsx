@@ -25,7 +25,9 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
   const [tenantRoomNumber, setTenantRoomNumber] = useState<string | null>(null);
   const [tenantDormId, setTenantDormId] = useState<string | null>(null);
   
-  const [meterDraft, setMeterDraft] = useState<Record<string, {w:string, e:string, extras:{desc:string, amt:number}[]}>>({});
+  const [isDraftHydrated, setIsDraftHydrated] = useState<boolean>(false);
+  const [meterDraft, setMeterDraft] = useState<Record<string, any>>({});
+  const [savedMeterDraft, setSavedMeterDraft] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState<boolean>(true);
 
   // Modal States
@@ -74,22 +76,41 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
     const localTenantDormId = localStorage.getItem("dormy_tenant_dorm_id");
     const localActiveDorm = localStorage.getItem("dormy_active_dorm");
 
-    // Clear stale admin role if session cookie is missing
+    // Align context role with the session cookie state
     const token = getCookie("dormy_admin_token");
-    if (localRole === "admin" && !token) {
-      localStorage.removeItem("dormy_role");
-      setRole(null);
+    if (token) {
+      setRole("admin");
+      localStorage.setItem("dormy_role", "admin");
     } else {
-      if (localRole) setRole(localRole);
+      if (localRole === "admin") {
+        localStorage.removeItem("dormy_role");
+        setRole(null);
+      } else {
+        if (localRole) setRole(localRole);
+      }
     }
 
-    if (localTenantRoom) setTenantRoom(localTenantRoom);
-    if (localTenantRoomNumber) setTenantRoomNumber(localTenantRoomNumber);
-    if (localTenantDormId) setTenantDormId(localTenantDormId);
+    if (localTenantRoom && localTenantRoom !== "undefined" && localTenantRoom !== "null") setTenantRoom(localTenantRoom);
+    if (localTenantRoomNumber && localTenantRoomNumber !== "undefined" && localTenantRoomNumber !== "null") setTenantRoomNumber(localTenantRoomNumber);
+    if (localTenantDormId && localTenantDormId !== "undefined" && localTenantDormId !== "null") setTenantDormId(localTenantDormId);
     
     if (localActiveDorm) {
       setActiveDormId(localActiveDorm);
     }
+
+    const savedDraft = localStorage.getItem("dormy_meter_draft");
+    if (savedDraft) {
+      try {
+        setMeterDraft(JSON.parse(savedDraft));
+      } catch (e) {}
+    }
+    const savedConfirmedDraft = localStorage.getItem("dormy_saved_meter_draft");
+    if (savedConfirmedDraft) {
+      try {
+        setSavedMeterDraft(JSON.parse(savedConfirmedDraft));
+      } catch (e) {}
+    }
+    setIsDraftHydrated(true);
 
     const saved = localStorage.getItem(STORE);
     if (saved) {
@@ -107,6 +128,20 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
     setData(DEFAULT_DATA);
     localStorage.setItem(STORE, JSON.stringify(DEFAULT_DATA));
   }, []);
+
+  // Sync meter draft to localStorage on change
+  useEffect(() => {
+    if (isDraftHydrated) {
+      localStorage.setItem("dormy_meter_draft", JSON.stringify(meterDraft));
+    }
+  }, [meterDraft, isDraftHydrated]);
+
+  // Sync saved meter draft to localStorage on change
+  useEffect(() => {
+    if (isDraftHydrated) {
+      localStorage.setItem("dormy_saved_meter_draft", JSON.stringify(savedMeterDraft));
+    }
+  }, [savedMeterDraft, isDraftHydrated]);
 
   // Fetch from API when role changes or activeDormId changes
   useEffect(() => {
@@ -200,15 +235,24 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
           setActiveDormDetails(tenantDormObj);
         }
       } catch (err: any) {
-        if (err.message && (
-          err.message.includes("โปรดเข้าสู่ระบบใหม่") || 
-          err.message.includes("หมดอายุ") || 
-          err.message.includes("ไม่ถูกต้อง")
-        )) {
-          logout();
+        console.error("syncDorms error caught:", err);
+        const errMsg = err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์";
+        toast(`ข้อผิดพลาดการดึงข้อมูล: ${errMsg}`, "error");
+        
+        const isAuthOrInvalidError = 
+          errMsg.includes("โปรดเข้าสู่ระบบใหม่") || 
+          errMsg.includes("หมดอายุ") || 
+          errMsg.includes("ไม่ถูกต้อง") ||
+          errMsg.includes("ไม่พบข้อมูล") ||
+          errMsg.includes("ระบุรหัส");
+
+        if (isAuthOrInvalidError) {
+          // Delay logout so the user can read the error message
+          setTimeout(() => {
+            logout();
+          }, 3000);
         } else {
-          console.error("API Error in syncDorms:", err);
-          toast(err.message || "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้", "error");
+          setLoading(false);
         }
       } finally {
         setLoading(false);
@@ -247,14 +291,13 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
   };
 
   const reloadDorm = async () => {
-    const targetId = role === "admin" ? activeDormId : tenantDormId;
-    if (!targetId) return;
     try {
-      const details = await api.getDormDetails(targetId);
-      
-      // Update list as well if admin
       if (role === "admin") {
-        const list = await api.getDorms();
+        if (!activeDormId) return;
+        const [details, list] = await Promise.all([
+          api.getDormDetails(activeDormId),
+          api.getDorms()
+        ]);
         setData((prev: any) => {
           const nextData = {
             ...prev,
@@ -264,17 +307,50 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem(STORE, JSON.stringify(nextData));
           return nextData;
         });
-      } else {
+        setActiveDormDetails(details);
+      } else if (role === "tenant" && tenantRoom) {
+        const session = await api.getTenantSession(tenantRoom);
+        setTenantRoomNumber(session.room_number);
+        setTenantDormId(session.dorm_id);
+        localStorage.setItem("dormy_tenant_room_number", session.room_number);
+        localStorage.setItem("dormy_tenant_dorm_id", session.dorm_id);
+
+        const tenantDormObj = {
+          id: session.dorm_id,
+          name: session.dorm_name,
+          address: session.dorm_address,
+          promptpay: session.dorm_promptpay,
+          waterRate: session.dorm_water_rate,
+          electricRate: session.dorm_electric_rate,
+          dueDayOfMonth: session.dorm_due_day_of_month,
+          rooms: [
+            {
+              id: session.room_number,
+              uuid: session.room_id,
+              status: "occupied",
+              tenant: session.tenant_name,
+              moveInDate: session.move_in_date,
+              contractStart: session.contract_start,
+              contractEnd: session.contract_end,
+              depositAmount: session.deposit_amount,
+              depositStatus: session.deposit_status,
+              depositNote: session.deposit_note,
+              lastWaterMeter: session.last_water_meter,
+              lastElectricMeter: session.last_electric_meter
+            }
+          ]
+        };
+
         setData((prev: any) => {
           const nextData = {
             ...prev,
-            activeDormDetails: details
+            activeDormDetails: tenantDormObj
           };
           localStorage.setItem(STORE, JSON.stringify(nextData));
           return nextData;
         });
+        setActiveDormDetails(tenantDormObj);
       }
-      setActiveDormDetails(details);
     } catch (err: any) {
       console.warn("Failed to reload from backend:", err);
     }
@@ -286,7 +362,7 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
     setTenantRoomNumber(null);
     setTenantDormId(null);
     setActiveDormDetails(null);
-    setData(null);
+    setData(DEFAULT_DATA);
     localStorage.removeItem("dormy_role");
     localStorage.removeItem("dormy_tenant_room");
     localStorage.removeItem("dormy_tenant_room_number");
@@ -322,6 +398,8 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
       reloadDorm,
       meterDraft,
       setMeterDraft,
+      savedMeterDraft,
+      setSavedMeterDraft,
       role,
       setRole: setSessionRole,
       tenantRoom,

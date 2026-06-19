@@ -48,7 +48,11 @@ export default function TenantLoginPage() {
       localStorage.setItem("dormy_tenant_dorm_id", res.dorm_id);
       router.push("/tenant/home");
     } catch (err: any) {
-      setErrorMsg(err.message || "ไม่พบรหัสเข้าใช้งานห้องพักนี้ หรือห้องยังไม่มีผู้เช่า");
+      const isNetworkError = err.message?.includes("Failed to fetch") || err.name === "TypeError";
+      setErrorMsg(isNetworkError 
+        ? "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบว่าเซิร์ฟเวอร์หลังบ้านรันอยู่"
+        : (err.message || "ไม่พบรหัสเข้าใช้งานห้องพักนี้ หรือห้องยังไม่มีผู้เช่า")
+      );
     }
   };
 

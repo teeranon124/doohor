@@ -99,6 +99,17 @@ async def get_tenant_session_by_uuid(room_uuid: str):
         query = supabase_admin.table("leases").select("*, rooms(*, dorms(*))").eq("status", "active")
         if is_uuid:
             query = query.eq("id", room_uuid)
+        elif len(room_uuid.strip()) == 8:
+            prefix = room_uuid.strip().lower()
+            all_active = supabase_admin.table("leases").select("*, rooms(*, dorms(*))").eq("status", "active").execute()
+            matching = [l for l in all_active.data if l["id"].lower().startswith(prefix)]
+            if matching:
+                class MockResponse:
+                    def __init__(self, data):
+                        self.data = data
+                res = MockResponse(matching)
+            else:
+                raise HTTPException(status_code=404, detail="รหัสยืนยันตัวตนไม่ถูกต้องหรือไม่พบสัญญาเช่าที่ใช้งานอยู่")
         else:
             # Fallback: search rooms by room_number first
             room_res = supabase_admin.table("rooms").select("id").eq("room_number", room_uuid).execute()
@@ -135,7 +146,8 @@ async def get_tenant_session_by_uuid(room_uuid: str):
             "deposit_status": lease["deposit_status"] or "none",
             "deposit_note": lease["deposit_note"] or "",
             "last_water_meter": float(room["last_water_meter"] or 0),
-            "last_electric_meter": float(room["last_electric_meter"] or 0)
+            "last_electric_meter": float(room["last_electric_meter"] or 0),
+            "line_user_id": lease.get("line_user_id") or ""
         }
     except HTTPException:
         raise

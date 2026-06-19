@@ -10,7 +10,7 @@
   --sh:0 1px 3px rgba(0,0,0,.07),0 4px 12px rgba(0,0,0,.04);
   --shmd:0 4px 16px rgba(0,0,0,.1);
 }
-body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
 
 /* LANDING */
@@ -91,6 +91,7 @@ main{flex:1;min-width:0;padding:18px 16px;max-width:1080px;width:100%;margin:0 a
 .r2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 @media(max-width:460px){.r2{grid-template-columns:1fr}.r3{grid-template-columns:1fr 1fr}}
+@media(min-width:600px){.md-grid-2{grid-template-columns:1fr 1fr !important}}
 
 /* DORM SWITCHER */
 .nav-center{flex:1;display:flex;justify-content:center;min-width:0}
@@ -243,3 +244,17 @@ main{flex:1;min-width:0;padding:18px 16px;max-width:1080px;width:100%;margin:0 a
 .toast.show{opacity:1;transform:translateY(0)}.toast.success{background:var(--green)}.toast.error{background:var(--red)}
 .toast svg{width:15px;height:15px;flex-shrink:0}
 .ow{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:12px;width:100%;max-width:100%}
+
+/* SPINNER */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border);
+  border-top: 3px solid var(--green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
