@@ -130,9 +130,16 @@ async def bulk_create_bills(req: BulkBillCreate, client: Client = Depends(get_su
 
         inserted_bills = []
         for b_in in req.bills:
-            # Find the active lease for this room
-            lease_res = client.table("leases").select("id").eq("room_id", b_in.room_id).eq("status", "active").execute()
-            lease_id = lease_res.data[0]["id"] if lease_res.data else None
+            # Find the active lease for this room, including line_user_id and room_number
+            lease_res = client.table("leases").select("id, line_user_id, rooms(room_number)").eq("room_id", b_in.room_id).eq("status", "active").execute()
+            lease_id = None
+            line_user_id = None
+            room_number = "N/A"
+            if lease_res.data:
+                lease_id = lease_res.data[0]["id"]
+                line_user_id = lease_res.data[0].get("line_user_id")
+                if lease_res.data[0].get("rooms"):
+                    room_number = lease_res.data[0]["rooms"].get("room_number") or "N/A"
 
             # Prepare extra charges JSONB
             extra_list = [{"desc": item.desc, "amt": item.amt} for item in b_in.extra_charges]
@@ -170,6 +177,21 @@ async def bulk_create_bills(req: BulkBillCreate, client: Client = Depends(get_su
                     "last_water_meter": b_in.water_end,
                     "last_electric_meter": b_in.electric_end
                 }).eq("id", b_in.room_id).execute()
+
+                # Trigger LINE push notification to tenant if bound
+                if line_user_id:
+                    try:
+                        from webapp.utils_line import send_bill_notification_to_tenant
+                        send_bill_notification_to_tenant(
+                            tenant_line_id=line_user_id,
+                            room_number=room_number,
+                            month=req.month,
+                            year=req.year,
+                            total=b_in.total,
+                            due_date=req.due_date
+                        )
+                    except Exception as line_err:
+                        print(f"Failed to notify tenant of new bill via LINE: {line_err}")
 
         return {"success": True, "count": len(inserted_bills)}
     except Exception as e:

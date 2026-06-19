@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     LINE_CHANNEL_ACCESS_TOKEN: str | None = None
     LINE_CHANNEL_SECRET: str | None = None
     LINE_ADMIN_USER_ID: str | None = None
+    NEXT_PUBLIC_LIFF_ID: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

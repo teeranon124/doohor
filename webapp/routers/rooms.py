@@ -109,8 +109,6 @@ async def update_room(room_id: str, req: RoomEdit, client: Client = Depends(get_
             room_data["type_id"] = req.type_id
         if req.rent_price is not None:
             room_data["rent_price"] = req.rent_price
-        if req.deposit_amount is not None:
-            room_data["deposit_amount"] = req.deposit_amount
         if req.last_water_meter is not None:
             room_data["last_water_meter"] = req.last_water_meter
         if req.last_electric_meter is not None:
@@ -125,12 +123,18 @@ async def update_room(room_id: str, req: RoomEdit, client: Client = Depends(get_
         lease_data = {}
         if req.tenant_name is not None:
             lease_data["tenant_name"] = req.tenant_name
+        if req.move_in_date is not None:
+            lease_data["move_in_date"] = date_fe_to_db(req.move_in_date)
         if req.contract_start is not None:
             lease_data["contract_start"] = date_fe_to_db(req.contract_start)
         if req.contract_end is not None:
             lease_data["contract_end"] = date_fe_to_db(req.contract_end)
         if req.deposit_amount is not None:
             lease_data["deposit_amount"] = req.deposit_amount
+        if req.deposit_status is not None:
+            lease_data["deposit_status"] = req.deposit_status
+        if req.deposit_note is not None:
+            lease_data["deposit_note"] = req.deposit_note
 
         if lease_data:
             # Find the active lease

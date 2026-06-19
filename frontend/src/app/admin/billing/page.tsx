@@ -230,32 +230,34 @@ export default function AdminBillingPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
           <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--t2)" }}>กรองตามรอบบิล:</span>
           
-          <select 
-            className="sel" 
-            style={{ width: "130px", padding: "6px 10px", fontSize: "13px" }}
-            value={filterMonth} 
-            onChange={(e) => setFilterMonth(e.target.value)}
-          >
-            <option value="all">ทุกเดือน</option>
-            {["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"].map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "nowrap" }}>
+            <select 
+              className="sel" 
+              style={{ width: "115px", padding: "6px 10px", fontSize: "13px" }}
+              value={filterMonth} 
+              onChange={(e) => setFilterMonth(e.target.value)}
+            >
+              <option value="all">ทุกเดือน</option>
+              {["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"].map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
 
-          <select 
-            className="sel" 
-            style={{ width: "100px", padding: "6px 10px", fontSize: "13px" }}
-            value={filterYear} 
-            onChange={(e) => setFilterYear(e.target.value)}
-          >
-            <option value="all">ทุกปี</option>
-            {Array.from(new Set([
-              new Date().getFullYear() + 543,
-              ...bills.map((b: any) => b.year)
-            ])).sort((a, b) => b - a).map(y => (
-              <option key={y} value={String(y)}>{y}</option>
-            ))}
-          </select>
+            <select 
+              className="sel" 
+              style={{ width: "85px", padding: "6px 10px", fontSize: "13px" }}
+              value={filterYear} 
+              onChange={(e) => setFilterYear(e.target.value)}
+            >
+              <option value="all">ทุกปี</option>
+              {Array.from(new Set([
+                new Date().getFullYear() + 543,
+                ...bills.map((b: any) => b.year)
+              ])).sort((a, b) => b - a).map(y => (
+                <option key={y} value={String(y)}>{y}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {(filterMonth !== "all" || filterYear !== "all") && (

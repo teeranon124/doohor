@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { api, getCookie } from "@/utils/api";
 
 const VERSION = '5.1';
@@ -33,19 +33,18 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
   // Modal States
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [modalData, setModalData] = useState<any>(null);
-
-  const openModal = (modalName: string, modalPayload: any = null) => {
+  const openModal = useCallback((modalName: string, modalPayload: any = null) => {
     setActiveModal(modalName);
     setModalData(modalPayload);
-  };
+  }, []);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setActiveModal(null);
     setModalData(null);
-  };
+  }, []);
 
   // Custom toast helper (replicates vanilla JS behavior)
-  const toast = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
+  const toast = useCallback((msg: string, type: 'success' | 'error' | 'info' = 'info') => {
     if (typeof window === "undefined") return;
     const w = document.getElementById('toast-wrap');
     if (!w) {
@@ -66,7 +65,7 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
       el.classList.remove('show');
       setTimeout(() => el.remove(), 220);
     }, 3200);
-  };
+  }, []);
 
   // Hydrate session and settings on mount
   useEffect(() => {
@@ -369,24 +368,23 @@ export function DormProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("dormy_tenant_dorm_id");
     document.cookie = "dormy_admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   };
-
-  const setSessionRole = (newRole: string | null) => {
+  const setSessionRole = useCallback((newRole: string | null) => {
     setRole(newRole);
     if (newRole) {
       localStorage.setItem("dormy_role", newRole);
     } else {
       localStorage.removeItem("dormy_role");
     }
-  };
+  }, []);
 
-  const setSessionTenantRoom = (roomUuid: string | null) => {
+  const setSessionTenantRoom = useCallback((roomUuid: string | null) => {
     setTenantRoom(roomUuid);
     if (roomUuid) {
       localStorage.setItem("dormy_tenant_room", roomUuid);
     } else {
       localStorage.removeItem("dormy_tenant_room");
     }
-  };
+  }, []);
 
   return (
     <DormContext.Provider value={{

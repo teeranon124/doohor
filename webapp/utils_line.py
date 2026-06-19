@@ -24,10 +24,12 @@ def send_order_notification_to_admin(
     dorm_name: str, 
     room_number: str, 
     amount: float, 
-    slip_url: str | None = None
+    slip_url: str | None = None,
+    admin_line_id: str | None = None
 ) -> bool:
     api = get_line_messaging_api()
-    if not api or not settings.LINE_ADMIN_USER_ID:
+    target_admin_id = admin_line_id or settings.LINE_ADMIN_USER_ID
+    if not api or not target_admin_id:
         print("LINE Bot API not fully configured (missing Access Token or Admin User ID).")
         return False
         
@@ -123,7 +125,7 @@ def send_order_notification_to_admin(
         container = FlexContainer.from_dict(flex_contents)
         message = FlexMessage(altText=alt_text, contents=container)
         request = PushMessageRequest(
-            to=settings.LINE_ADMIN_USER_ID,
+            to=target_admin_id,
             messages=[message]
         )
         api.push_message(request)
@@ -161,3 +163,41 @@ def send_status_update_to_tenant(
     except Exception as e:
         print(f"Error sending LINE update to tenant: {e}")
         return False
+
+def send_bill_notification_to_tenant(
+    tenant_line_id: str | None,
+    room_number: str,
+    month: str,
+    year: int,
+    total: float,
+    due_date: str
+) -> bool:
+    api = get_line_messaging_api()
+    liff_id = settings.NEXT_PUBLIC_LIFF_ID
+    if not api or not tenant_line_id:
+        print("Tenant LINE notification skipped (missing API configuration or tenant_line_id).")
+        return False
+        
+    liff_url = f"https://liff.line.me/{liff_id}" if liff_id else ""
+    msg_text = (
+        f"📢 แจ้งยอดค่าเช่าหอพักประจำเดือน {month} {year}\n\n"
+        f"ห้องพัก: {room_number}\n"
+        f"ยอดที่ต้องชำระ: ฿{total:,.2f}\n"
+        f"กำหนดชำระภายใน: {due_date}"
+    )
+    if liff_url:
+        msg_text += f"\n\nดูบิลและแจ้งชำระเงินได้ที่นี่: {liff_url}"
+        
+    try:
+        message = TextMessage(text=msg_text)
+        request = PushMessageRequest(
+            to=tenant_line_id,
+            messages=[message]
+        )
+        api.push_message(request)
+        print(f"Successfully pushed bill notification to tenant {tenant_line_id}.")
+        return True
+    except Exception as e:
+        print(f"Error sending bill notification to tenant: {e}")
+        return False
+

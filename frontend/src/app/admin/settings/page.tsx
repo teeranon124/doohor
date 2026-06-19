@@ -2,10 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import { useDorm } from "@/context/DormContext";
-import { api } from "@/utils/api";
+import { api, getCookie } from "@/utils/api";
 
 export default function AdminSettingsPage() {
   const { dorm, reloadDorm, toast, openModal, data, setData } = useDorm();
+
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2010441894-DC9CyoQf";
+  const adminToken = typeof window !== "undefined" ? getCookie("dormy_admin_token") : "";
+  const bindLink = `https://liff.line.me/${liffId}?mode=admin-bind&token=${adminToken}`;
 
   const [dormName, setDormName] = useState("");
   const [address, setAddress] = useState("");
@@ -13,6 +17,9 @@ export default function AdminSettingsPage() {
   const [waterRate, setWaterRate] = useState(18);
   const [electricRate, setElectricRate] = useState(8);
   const [dueDay, setDueDay] = useState(5);
+  
+  const [boundLineUserId, setBoundLineUserId] = useState("");
+  const [otpCode, setOtpCode] = useState("");
 
   const [typeName, setTypeName] = useState("");
   const [typeRent, setTypeRent] = useState("");
@@ -20,6 +27,16 @@ export default function AdminSettingsPage() {
 
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingRoomType, setSavingRoomType] = useState(false);
+
+  const fetchBindingCode = async () => {
+    try {
+      const res = await api.getAdminBindingCode();
+      setBoundLineUserId(res.line_user_id || "");
+      setOtpCode(res.binding_code || "");
+    } catch (err) {
+      console.error("Failed to load admin binding code:", err);
+    }
+  };
 
   useEffect(() => {
     if (dorm) {
@@ -29,8 +46,27 @@ export default function AdminSettingsPage() {
       setWaterRate(dorm.waterRate !== undefined ? dorm.waterRate : 18);
       setElectricRate(dorm.electricRate !== undefined ? dorm.electricRate : 8);
       setDueDay(dorm.dueDayOfMonth !== undefined ? dorm.dueDayOfMonth : 5);
+      
+      const lineId = dorm.ownerLineUserId || "";
+      setBoundLineUserId(lineId);
+      if (!lineId) {
+        fetchBindingCode();
+      }
     }
   }, [dorm]);
+
+  const handleUnbindLine = async () => {
+    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการเชื่อมต่อ LINE สำหรับรับแจ้งเตือนสลิป?")) return;
+    try {
+      await api.unbindAdminLine();
+      toast("ยกเลิกการเชื่อมต่อ LINE สำเร็จ", "success");
+      setBoundLineUserId("");
+      fetchBindingCode();
+      await reloadDorm();
+    } catch (err: any) {
+      toast(err.message || "เกิดข้อผิดพลาด", "error");
+    }
+  };
 
   if (!dorm) {
     return <div className="empty">ไม่พบข้อมูลหอพัก</div>;
@@ -66,7 +102,8 @@ export default function AdminSettingsPage() {
             promptpay: promptpay,
             dueDayOfMonth: dueDay,
             waterRate: waterRate,
-            electricRate: electricRate
+            electricRate: electricRate,
+            ownerLineUserId: boundLineUserId
           };
         }
         return d;
@@ -165,6 +202,141 @@ export default function AdminSettingsPage() {
                 value={promptpay}
                 onChange={(e) => setPromptpay(e.target.value)}
               />
+            </div>
+            <div className="fg" style={{ marginTop: "14px", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "14px" }}>
+              <label className="fl" style={{ fontWeight: "700" }}>การเชื่อมต่อระบบแจ้งเตือนผ่าน LINE</label>
+              {boundLineUserId ? (
+                <div style={{
+                  background: "rgba(56, 239, 125, 0.08)",
+                  border: "1px solid rgba(56, 239, 125, 0.2)",
+                  borderRadius: "12px",
+                  padding: "16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  textAlign: "left"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{
+                      width: "10px",
+                      height: "10px",
+                      background: "#38ef7d",
+                      borderRadius: "50%",
+                      boxShadow: "0 0 8px #38ef7d"
+                    }}></span>
+                    <strong style={{ color: "#38ef7d", fontSize: "14px" }}>ผูกบัญชี LINE สำเร็จแล้ว</strong>
+                  </div>
+                  <div style={{ fontSize: "12.5px", color: "var(--t2)" }}>
+                    LINE User ID ของคุณ: <code style={{ fontFamily: "monospace", color: "#fff", background: "rgba(0,0,0,0.2)", padding: "2px 6px", borderRadius: "4px" }}>{boundLineUserId}</code>
+                  </div>
+                  <div style={{ fontSize: "12px", color: "var(--t3)", lineHeight: "1.4" }}>
+                    * ระบบจะจัดส่งข้อความรูปภาพสลิปที่ผู้เช่าแจ้งโอนเงินมาให้ตรวจสอบและอนุมัติใน LINE ส่วนตัวของคุณโดยตรงเมื่อมีการจ่ายค่าเช่า
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={handleUnbindLine}
+                    className="btn bd bsm"
+                    style={{ alignSelf: "flex-start", marginTop: "4px", padding: "6px 12px" }}
+                  >
+                    ยกเลิกการผูกบัญชี LINE
+                  </button>
+                </div>
+              ) : (
+                <div style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "16px",
+                  padding: "20px",
+                  textAlign: "left",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "20px"
+                }}>
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: "700", color: "#f8fafc", marginBottom: "6px" }}>
+                      วิธีที่ 1: เชื่อมต่อในคลิกเดียว (1-Click Connect) — แนะนำ 👍
+                    </div>
+                    <div style={{ fontSize: "12.5px", color: "var(--t2)", marginBottom: "14px", lineHeight: "1.4" }}>
+                      หากใช้งานผ่านโทรศัพท์มือถือที่ติดตั้งแอป LINE สามารถกดปุ่มเชื่อมต่อด้านล่างเพื่อผูกบัญชีได้ทันที หรือสแกน QR Code นี้หากคุณเปิดหน้าเว็บนี้บนคอมพิวเตอร์
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "20px", alignItems: "center" }}>
+                      <a
+                        href={bindLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn"
+                        style={{
+                          background: "linear-gradient(135deg, #06c755 0%, #05b04b 100%)",
+                          color: "#fff",
+                          fontWeight: "bold",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          border: "none",
+                          padding: "12px 20px",
+                          borderRadius: "10px",
+                          textDecoration: "none",
+                          cursor: "pointer",
+                          boxShadow: "0 4px 14px rgba(6, 199, 85, 0.3)"
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                          <path d="M24 10.3c0-5.7-5.4-10.3-12-10.3S0 4.6 0 10.3c0 5.1 4.3 9.4 10.1 10.2.4.1.9.4.9.9v2.2c0 .6.4.8.7.4l3-3.6c2.8-.8 9.3-3.2 9.3-10.1z"/>
+                        </svg>
+                        เชื่อมต่อ LINE ทันที
+                      </a>
+                      
+                      {adminToken && (
+                        <div style={{
+                          background: "#fff",
+                          padding: "8px",
+                          borderRadius: "12px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.3)"
+                        }}>
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(bindLink)}`}
+                            alt="LINE QR Code"
+                            width="120"
+                            height="120"
+                            style={{ display: "block" }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: "1px dashed rgba(255,255,255,0.1)", paddingTop: "20px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: "700", color: "#f8fafc", marginBottom: "6px" }}>
+                      วิธีที่ 2: เชื่อมต่อผ่านรหัสยืนยัน 6 หลัก (กรณีเปิด LIFF ไม่ได้)
+                    </div>
+                    <ol style={{ paddingLeft: "20px", fontSize: "12.5px", color: "var(--t2)", display: "flex", flexDirection: "column", gap: "6px", margin: "0 0 12px 0" }}>
+                      <li>กดเพิ่มเพื่อน LINE OA ของแพลตฟอร์มหอพักเรา</li>
+                      <li>พิมพ์รหัสยืนยัน 6 หลักต่อไปนี้ส่งเข้ามาในแชท:</li>
+                    </ol>
+                    <div style={{
+                      background: "rgba(56, 239, 125, 0.08)",
+                      border: "1px solid rgba(56, 239, 125, 0.2)",
+                      borderRadius: "8px",
+                      padding: "10px",
+                      textAlign: "center",
+                      fontSize: "24px",
+                      fontWeight: "800",
+                      letterSpacing: "4px",
+                      color: "#38ef7d",
+                      fontFamily: "monospace",
+                      margin: "10px 0"
+                    }}>
+                      {otpCode || "------"}
+                    </div>
+                    <div style={{ fontSize: "11.5px", color: "var(--t3)", textAlign: "center" }}>
+                      * เมื่อส่งรหัสเข้าแชทสำเร็จ บัญชีจะเชื่อมต่อเข้ากับ LINE ของคุณทันทีโดยอัตโนมัติ
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

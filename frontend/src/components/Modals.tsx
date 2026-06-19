@@ -646,30 +646,64 @@ function TenantModal({ isOpen, close, roomId, mode }: { isOpen: boolean; close: 
               />
             </div>
             <div className="fg">
-              <label className="fl">ลิงก์เข้าใช้งานสำหรับผู้เช่า (Room Link)</label>
+              <label className="fl">ลิงก์เชิญเชื่อมต่อ LINE (1-Click LINE Invite)</label>
               <div style={{ display: "flex", gap: "8px" }}>
                 <input
                   type="text"
                   className="inp"
-                  value={typeof window !== "undefined" ? `${window.location.origin}/tenant/home?key=${r?.uuid || ""}` : ""}
+                  value={`https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID || "2010441894-DC9CyoQf"}?key=${r?.uuid || ""}`}
                   readOnly
                   style={{ background: "var(--bg)", color: "var(--t2)", fontSize: "12px", textOverflow: "ellipsis" }}
                 />
                 <button
                   type="button"
                   className="btn bg"
-                  style={{ padding: "0 12px", whiteSpace: "nowrap", fontSize: "12px" }}
+                  style={{
+                    padding: "0 12px",
+                    whiteSpace: "nowrap",
+                    fontSize: "12px",
+                    background: "linear-gradient(135deg, #06c755 0%, #05b04b 100%)",
+                    color: "#fff",
+                    border: "none"
+                  }}
                   onClick={() => {
-                    const link = `${window.location.origin}/tenant/home?key=${r?.uuid}`;
+                    const liffId = process.env.NEXT_PUBLIC_LIFF_ID || "2010441894-DC9CyoQf";
+                    const link = `https://liff.line.me/${liffId}?key=${r?.uuid}`;
                     navigator.clipboard.writeText(link);
-                    toast("คัดลอกลิงก์ทางเข้าสำหรับผู้เช่าเรียบร้อยแล้ว!", "success");
+                    toast("คัดลอกลิงก์เชิญผ่าน LINE เรียบร้อยแล้ว! ส่งในแชทให้ผู้เช่ากดได้เลย", "success");
                   }}
                 >
-                  คัดลอกลิงก์
+                  คัดลอกลิงก์ LINE
                 </button>
               </div>
-              <div className="hint" style={{ marginTop: "4px" }}>
-                รหัสห้องพัก (Room Key): <code style={{ fontFamily: "monospace", color: "var(--t2)" }}>{r?.uuid}</code>
+              <div className="hint" style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "6px", lineHeight: "1.4" }}>
+                <div>* เมื่อผู้เช่าคลิกลิงก์นี้บนมือถือ จะเป็นการเปิดแอป LINE เพื่อผูกข้อมูลห้องพักกับบัญชี LINE ทันทีใน 1 คลิก</div>
+                <div style={{ marginTop: "2px", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <span>รหัสห้องพัก (Room Key):</span>
+                  <code style={{ fontFamily: "monospace", color: "var(--t2)", background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: "4px" }}>
+                    {r?.uuid}
+                  </code>
+                  <button
+                    type="button"
+                    style={{
+                      background: "rgba(255,255,255,0.1)",
+                      border: "1px solid rgba(255,255,255,0.15)",
+                      color: "var(--t2)",
+                      fontSize: "11px",
+                      padding: "2px 8px",
+                      borderRadius: "4px",
+                      cursor: "pointer"
+                    }}
+                    onClick={() => {
+                      if (r?.uuid) {
+                        navigator.clipboard.writeText(r.uuid);
+                        toast("คัดลอกรหัสห้องพักเรียบร้อยแล้ว!", "success");
+                      }
+                    }}
+                  >
+                    คัดลอกรหัส
+                  </button>
+                </div>
               </div>
             </div>
             <div className="r2">
@@ -1076,7 +1110,7 @@ function BillPreviewModal({ isOpen, close }: { isOpen: boolean; close: () => voi
         <div className="modal-title">ตรวจสอบและส่งแจ้งเตือนไลน์</div>
 
         {/* Configurations */}
-        <div className="r2 mb4 mt4">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }} className="mb4 mt4">
           <div className="fg" style={{ marginBottom: 0 }}>
             <label className="fl">ประจำเดือน</label>
             <select className="sel" value={month} onChange={(e) => setMonth(e.target.value)} disabled={loading}>

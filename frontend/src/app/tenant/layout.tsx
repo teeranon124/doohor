@@ -59,7 +59,8 @@ function TenantLayoutInner({ children }: { children: React.ReactNode }) {
 
   const isLoginPage = pathname?.replace(/\/$/, "") === "/tenant/login";
   const isBindLinePage = pathname?.replace(/\/$/, "") === "/tenant/bind-line";
-  const isPublicPage = isLoginPage || isBindLinePage;
+  const isLiffPage = pathname?.startsWith("/tenant/liff");
+  const isPublicPage = isLoginPage || isBindLinePage || isLiffPage;
   const isHydrated = data !== null;
 
   useEffect(() => {

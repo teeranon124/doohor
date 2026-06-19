@@ -164,12 +164,25 @@ async def create_order(
                 except Exception:
                     pass
                     
+            # Query owner's LINE ID for this dorm to send push notification to
+            owner_line_id = None
+            try:
+                dorm_owner_res = supabase_admin.table("dorms").select("owner_id").eq("id", dorm_id).execute()
+                if dorm_owner_res.data:
+                    owner_id = dorm_owner_res.data[0]["owner_id"]
+                    owner_user_res = supabase_admin.table("users").select("line_user_id").eq("id", owner_id).execute()
+                    if owner_user_res.data:
+                        owner_line_id = owner_user_res.data[0]["line_user_id"]
+            except Exception as e:
+                print(f"Error looking up dorm owner's LINE ID: {e}")
+
             send_order_notification_to_admin(
                 order_id=order_uuid,
                 dorm_name=dorm_name,
                 room_number=room_number,
                 amount=amount,
-                slip_url=signed_url
+                slip_url=signed_url,
+                admin_line_id=owner_line_id
             )
 
         return {"success": True, "order": new_order}
@@ -264,6 +277,51 @@ async def get_orders(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class TenantLineIdUpdate(BaseModel):
+    room_uuid: str
+    line_user_id: str
+
+@router.put("/line-id")
+async def update_tenant_line_id(req: TenantLineIdUpdate):
+    """
+    Save or update the tenant's LINE User ID on their active lease.
+    """
+    try:
+        import uuid
+        is_uuid = True
+        try:
+            uuid.UUID(req.room_uuid)
+        except ValueError:
+            is_uuid = False
+
+        if not is_uuid:
+            raise HTTPException(status_code=400, detail="รูปแบบรหัสเข้าใช้งานไม่ถูกต้อง")
+
+        # Check if the lease exists and is active
+        lease_res = supabase_admin.table("leases").select("id").eq("id", req.room_uuid).eq("status", "active").execute()
+        if not lease_res.data:
+            # Fallback: maybe it is a physical room ID
+            lease_res = supabase_admin.table("leases").select("id").eq("room_id", req.room_uuid).eq("status", "active").execute()
+            if not lease_res.data:
+                raise HTTPException(status_code=404, detail="ไม่พบข้อมูลสัญญาเช่าที่เปิดใช้งานอยู่")
+
+        lease_id = lease_res.data[0]["id"]
+        
+        # Remove this line_user_id from any other active leases to prevent duplicates
+        if req.line_user_id:
+            supabase_admin.table("leases").update({"line_user_id": None}).eq("line_user_id", req.line_user_id).eq("status", "active").execute()
+        
+        # Update line_user_id on the lease
+        res = supabase_admin.table("leases").update({"line_user_id": req.line_user_id}).eq("id", lease_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=400, detail="ไม่สามารถบันทึก LINE ID ได้")
+
+        return {"success": True, "message": "บันทึก LINE ID เรียบร้อยแล้ว"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.put("/{order_id}")
 async def update_order_status(
     order_id: str,
@@ -331,51 +389,6 @@ async def update_order_status(
             print(f"Failed to notify tenant of update via LINE: {line_err}")
             
         return {"success": True, "order": updated_order}
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-class TenantLineIdUpdate(BaseModel):
-    room_uuid: str
-    line_user_id: str
-
-@router.put("/line-id")
-async def update_tenant_line_id(req: TenantLineIdUpdate):
-    """
-    Save or update the tenant's LINE User ID on their active lease.
-    """
-    try:
-        import uuid
-        is_uuid = True
-        try:
-            uuid.UUID(req.room_uuid)
-        except ValueError:
-            is_uuid = False
-
-        if not is_uuid:
-            raise HTTPException(status_code=400, detail="รูปแบบรหัสเข้าใช้งานไม่ถูกต้อง")
-
-        # Check if the lease exists and is active
-        lease_res = supabase_admin.table("leases").select("id").eq("id", req.room_uuid).eq("status", "active").execute()
-        if not lease_res.data:
-            # Fallback: maybe it is a physical room ID
-            lease_res = supabase_admin.table("leases").select("id").eq("room_id", req.room_uuid).eq("status", "active").execute()
-            if not lease_res.data:
-                raise HTTPException(status_code=404, detail="ไม่พบข้อมูลสัญญาเช่าที่เปิดใช้งานอยู่")
-
-        lease_id = lease_res.data[0]["id"]
-        
-        # Remove this line_user_id from any other active leases to prevent duplicates
-        if req.line_user_id:
-            supabase_admin.table("leases").update({"line_user_id": None}).eq("line_user_id", req.line_user_id).eq("status", "active").execute()
-        
-        # Update line_user_id on the lease
-        res = supabase_admin.table("leases").update({"line_user_id": req.line_user_id}).eq("id", lease_id).execute()
-        if not res.data:
-            raise HTTPException(status_code=400, detail="ไม่สามารถบันทึก LINE ID ได้")
-
-        return {"success": True, "message": "บันทึก LINE ID เรียบร้อยแล้ว"}
     except HTTPException as he:
         raise he
     except Exception as e:

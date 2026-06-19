@@ -108,6 +108,11 @@ export default function AdminLoginPage() {
               {loading ? "กำลังโหลด..." : "เข้าสู่ระบบ"}
             </button>
           </div>
+
+          <div style={{ marginTop: "16px", textAlign: "center", fontSize: "13px" }}>
+            <span style={{ color: "var(--t3)" }}>ยังไม่มีบัญชีเจ้าของหอพัก? </span>
+            <a href="/admin/register" style={{ color: "var(--green)", fontWeight: "600", textDecoration: "none" }}>สมัครสมาชิกใหม่ที่นี่</a>
+          </div>
         </div>
       </div>
     </div>

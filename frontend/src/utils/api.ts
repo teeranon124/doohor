@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000/api/v1";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 export function getCookie(name: string): string {
   if (typeof document === "undefined") return "";
@@ -33,10 +33,20 @@ export async function request(path: string, options: RequestInit = {}) {
 export const api = {
   // Auth
   loginAdmin: (data: any) => request("/auth/login/admin", { method: "POST", body: JSON.stringify(data) }),
+  registerAdmin: (data: any) => request("/auth/register/admin", { method: "POST", body: JSON.stringify(data) }),
   loginTenant: (data: any) => request("/auth/login/tenant", { method: "POST", body: JSON.stringify(data) }),
   loginTenantByUuid: (uuid: string) => request(`/auth/login/tenant/${uuid}`),
   getTenantSessionByUuid: (uuid: string) => request(`/auth/login/tenant/${uuid}`), // alias
   getTenantSession: (uuid: string) => request(`/auth/tenant/session/${uuid}`),
+  getTenantSessionByLineId: (lineUserId: string) => request(`/auth/tenant/line/${lineUserId}`),
+  getLineSession: (lineUserId: string) => request(`/auth/line-session/${lineUserId}`),
+  getAdminBindingCode: () => request("/auth/admin/binding-code"),
+  unbindAdminLine: () => request("/auth/admin/unbind-line", { method: "POST" }),
+  bindAdminLineDirect: (lineUserId: string, token: string) => request("/auth/admin/bind-line-direct", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${token}` },
+    body: JSON.stringify({ line_user_id: lineUserId })
+  }),
 
   // Dorms
   getDorms: () => request("/dorms"),

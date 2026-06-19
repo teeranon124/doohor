@@ -223,3 +223,53 @@ CREATE POLICY "Admins manage deposit history" ON public.deposit_history FOR ALL 
 CREATE POLICY "Tenants view own deposit history" ON public.deposit_history FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.rooms r WHERE r.id = deposit_history.room_id AND r.tenant_id = auth.uid())
 );
+
+-- ==========================================
+-- 5. METER SYNC TRIGGER ON BILL CHANGES
+-- ==========================================
+CREATE OR REPLACE FUNCTION public.sync_room_meters_on_bill_change()
+RETURNS TRIGGER AS $$
+DECLARE
+    latest_we NUMERIC;
+    latest_ee NUMERIC;
+    r_id UUID;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        r_id := OLD.room_id;
+    ELSE
+        r_id := NEW.room_id;
+    END IF;
+
+    -- Find the latest remaining bill for this room
+    SELECT water_end, electric_end
+    INTO latest_we, latest_ee
+    FROM public.bills
+    WHERE room_id = r_id
+    ORDER BY billing_year DESC, billing_month DESC
+    LIMIT 1;
+
+    -- Fallback to 0 if no bills exist
+    IF latest_we IS NULL THEN
+        latest_we := 0;
+    END IF;
+    IF latest_ee IS NULL THEN
+        latest_ee := 0;
+    END IF;
+
+    -- Update rooms table
+    UPDATE public.rooms
+    SET last_water_meter = latest_we,
+        last_electric_meter = latest_ee,
+        updated_at = timezone('utc', now())
+    WHERE id = r_id;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trigger_sync_room_meters ON public.bills;
+CREATE TRIGGER trigger_sync_room_meters
+    AFTER INSERT OR UPDATE OR DELETE ON public.bills
+    FOR EACH ROW
+    EXECUTE FUNCTION public.sync_room_meters_on_bill_change();
+

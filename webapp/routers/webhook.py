@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Header, HTTPException
 from linebot.v3.webhook import WebhookParser
 from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhooks import PostbackEvent
+from linebot.v3.webhooks import PostbackEvent, MessageEvent, TextMessageContent
 from webapp.config import settings
 from webapp.db import supabase_admin
 from datetime import datetime, timezone
@@ -107,4 +107,53 @@ async def line_webhook(request: Request, x_line_signature: str = Header(None)):
             except Exception as reply_err:
                 print(f"Failed to send reply to admin: {reply_err}")
                 
+        elif isinstance(event, MessageEvent) and isinstance(event.message, TextMessageContent):
+            text = event.message.text.strip()
+            # Check if text is a 6-digit code
+            if len(text) == 6 and text.isdigit():
+                # Query users table to find who generated this code
+                user_res = supabase_admin.table("users").select("id, name").eq("line_binding_code", text).execute()
+                if user_res.data:
+                    user = user_res.data[0]
+                    user_id = user["id"]
+                    user_name = user.get("name") or "ผู้ใช้งาน"
+                    
+                    # Update line_user_id on this user, clear the binding code
+                    supabase_admin.table("users").update({
+                        "line_user_id": event.source.user_id,
+                        "line_binding_code": None
+                    }).eq("id", user_id).execute()
+                    
+                    # Reply confirmation
+                    try:
+                        from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, ReplyMessageRequest, TextMessage
+                        config = Configuration(access_token=settings.LINE_CHANNEL_ACCESS_TOKEN)
+                        api_client = ApiClient(config)
+                        messaging_api = MessagingApi(api_client)
+                        
+                        reply_text = f"🎉 เชื่อมต่อบัญชีเจ้าของหอพักสำเร็จแล้ว!\n\nคุณ {user_name} จะได้รับการแจ้งเตือนสลิปโอนเงินค่าเช่าจากผู้เช่าทางห้องแชทนี้โดยอัตโนมัติค่ะ"
+                        reply_request = ReplyMessageRequest(
+                            replyToken=event.reply_token,
+                            messages=[TextMessage(text=reply_text)]
+                        )
+                        messaging_api.reply_message(reply_request)
+                    except Exception as reply_err:
+                        print(f"Failed to reply admin binding confirmation: {reply_err}")
+                else:
+                    # Reply error
+                    try:
+                        from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, ReplyMessageRequest, TextMessage
+                        config = Configuration(access_token=settings.LINE_CHANNEL_ACCESS_TOKEN)
+                        api_client = ApiClient(config)
+                        messaging_api = MessagingApi(api_client)
+                        
+                        reply_text = "❌ ไม่พบรหัสเชื่อมต่อนี้ หรือรหัสหมดอายุแล้ว กรุณาตรวจสอบรหัสบนหน้าเว็บไซต์และลองใหม่อีกครั้งค่ะ"
+                        reply_request = ReplyMessageRequest(
+                            replyToken=event.reply_token,
+                            messages=[TextMessage(text=reply_text)]
+                        )
+                        messaging_api.reply_message(reply_request)
+                    except Exception as reply_err:
+                        print(f"Failed to reply invalid binding code: {reply_err}")
+                        
     return "OK"

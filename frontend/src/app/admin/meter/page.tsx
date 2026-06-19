@@ -124,7 +124,7 @@ export default function AdminMeterPage() {
 
       <div className="card mb5">
         <div className="cp">
-          <div className="r2 mb4">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }} className="mb4">
             <div className="fg" style={{ marginBottom: 0 }}>
               <label className="fl">เดือน</label>
               <select className="sel" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>

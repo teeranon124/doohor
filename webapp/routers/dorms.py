@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from supabase import Client
 from webapp.dependencies import get_supabase_client
+from webapp.db import supabase_admin
 from webapp.utils import (
     date_db_to_fe,
     get_thai_month_name,
@@ -17,6 +18,7 @@ class DormCreateUpdate(BaseModel):
     due_day_of_month: int = 5
     water_rate: float = 18.0
     electric_rate: float = 8.0
+    line_user_id: str | None = None
 
 @router.get("")
 async def get_dorms(client: Client = Depends(get_supabase_client)):
@@ -92,6 +94,10 @@ async def update_dorm(dorm_id: str, req: DormCreateUpdate, client: Client = Depe
             "water_rate": req.water_rate,
             "electric_rate": req.electric_rate
         }
+        owner_id = getattr(client, "user_id", None)
+        if owner_id and req.line_user_id is not None:
+            supabase_admin.table("users").update({"line_user_id": req.line_user_id}).eq("id", owner_id).execute()
+
         res = client.table("dorms").update(data).eq("id", dorm_id).execute()
         if not res.data:
             raise HTTPException(status_code=404, detail="ไม่พบหอพักที่ต้องการแก้ไข")
@@ -103,7 +109,8 @@ async def update_dorm(dorm_id: str, req: DormCreateUpdate, client: Client = Depe
             "promptpay": d["promptpay"] or "",
             "dueDayOfMonth": d["due_day_of_month"],
             "waterRate": float(d["water_rate"]),
-            "electricRate": float(d["electric_rate"])
+            "electricRate": float(d["electric_rate"]),
+            "ownerLineUserId": req.line_user_id or ""
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -256,6 +263,13 @@ async def get_dorm_details(dorm_id: str, client: Client = Depends(get_supabase_c
                 "status": rep["status"]
             })
 
+        owner_line_user_id = ""
+        owner_id = d.get("owner_id")
+        if owner_id:
+            user_res = supabase_admin.table("users").select("line_user_id").eq("id", owner_id).execute()
+            if user_res.data:
+                owner_line_user_id = user_res.data[0].get("line_user_id") or ""
+
         return {
             "id": str(d["id"]),
             "name": d["name"],
@@ -264,6 +278,7 @@ async def get_dorm_details(dorm_id: str, client: Client = Depends(get_supabase_c
             "dueDayOfMonth": d["due_day_of_month"],
             "waterRate": float(d["water_rate"]),
             "electricRate": float(d["electric_rate"]),
+            "ownerLineUserId": owner_line_user_id,
             "roomTypes": room_types,
             "rooms": rooms,
             "bills": bills,

@@ -145,7 +145,7 @@ export default function TenantBindLinePage() {
   const handleBind = async () => {
     const cleanKey = roomKey.trim();
     if (!cleanKey || (cleanKey.length !== 36 && cleanKey.length !== 8)) {
-      setErrorMsg("กรุณากรอกรหัสยืนยันตัวตน 8 หลัก หรือรหัส 36 หลักที่ถูกต้อง");
+      setErrorMsg("กรุณากรอกรหัสเข้าใช้งานห้องพักที่ถูกต้อง");
       return;
     }
     if (!lineUser) {
@@ -175,9 +175,9 @@ export default function TenantBindLinePage() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: "linear-gradient(135deg, #111e25 0%, #1e3a47 100%)",
+      background: "var(--bg)",
       fontFamily: "'Sarabun', sans-serif",
-      color: "#e8eff1",
+      color: "var(--text)",
       display: "flex",
       flexDirection: "column",
       justifyContent: "center",
@@ -189,16 +189,16 @@ export default function TenantBindLinePage() {
       {/* Simulation Banner */}
       {isSimulation && (
         <div style={{
-          background: "rgba(245, 158, 11, 0.2)",
-          border: "1px solid rgb(245, 158, 11)",
-          color: "#fbbf24",
+          background: "var(--al)",
+          border: "1px solid var(--amber)",
+          color: "var(--amber)",
           fontSize: "12px",
           padding: "8px 16px",
           borderRadius: "30px",
           marginBottom: "20px",
           textAlign: "center",
           fontWeight: "600",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+          boxShadow: "var(--sh)"
         }}>
           ⚠️ Simulation Mode: เปิดหน้าจอนอกแอป LINE
         </div>
@@ -206,35 +206,31 @@ export default function TenantBindLinePage() {
 
       {/* Main Glassmorphic Container */}
       <div style={{
-        background: "rgba(255, 255, 255, 0.08)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        border: "1px solid rgba(255, 255, 255, 0.15)",
-        borderRadius: "24px",
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--rlg)",
         width: "100%",
         maxWidth: "400px",
-        padding: "30px 24px",
+        padding: "32px 24px",
         boxSizing: "border-box",
-        boxShadow: "0 20px 40px rgba(0, 0, 0, 0.35)",
+        boxShadow: "var(--shmd)",
         textAlign: "center"
       }}>
         
         {/* Brand Header */}
-        <div style={{ marginBottom: "24px" }}>
+        <div style={{ marginBottom: "28px" }}>
           <div style={{
+            fontFamily: "'IBM Plex Sans Thai', sans-serif",
             fontSize: "28px",
-            fontWeight: "800",
-            letterSpacing: "1px",
-            background: "linear-gradient(45deg, #38ef7d 0%, #11998e 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
+            fontWeight: "700",
+            color: "var(--green)",
             display: "inline-block",
-            marginBottom: "4px"
+            marginBottom: "6px"
           }}>
-            Dormy Verify
+            ดูหอ (DooHor)
           </div>
-          <div style={{ fontSize: "13px", color: "#a5b4fc", opacity: 0.8 }}>
-            ระบบเชื่อมต่อการรับใบเสร็จและแจ้งเตือนผ่าน LINE
+          <div style={{ fontSize: "13px", color: "var(--t2)" }}>
+            ระบบเชื่อมต่อ LINE เพื่อรับแจ้งเตือนบิลและใบเสร็จ
           </div>
         </div>
 
@@ -244,40 +240,38 @@ export default function TenantBindLinePage() {
             <div style={{
               width: "70px",
               height: "70px",
-              background: "linear-gradient(135deg, #24c6dc 0%, #514a9d 100%)",
+              background: "var(--gl)",
               borderRadius: "50%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               marginBottom: "20px",
-              boxShadow: "0 0 20px rgba(81, 74, 157, 0.4)"
+              border: "2px solid var(--green)"
             }}>
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3" style={{ width: "36px", height: "36px", color: "#fff" }}>
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3" style={{ width: "36px", height: "36px", color: "var(--green)" }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 style={{ fontSize: "20px", fontWeight: "700", margin: "0 0 10px 0", color: "#38ef7d" }}>
+            <h3 style={{ fontSize: "20px", fontWeight: "700", margin: "0 0 10px 0", color: "var(--green)" }}>
               เชื่อมต่อสำเร็จแล้ว!
             </h3>
-            <p style={{ fontSize: "14px", color: "#cbd5e1", lineHeight: "1.6", margin: "0 0 24px 0", padding: "0 10px" }}>
-              หอพักได้บันทึก LINE ของคุณเข้ากับระบบแล้ว ต่อจากนี้คุณจะได้รับบิลแจ้งเตือนและประวัติการยืนยันโอนเงินส่งตรงไปยัง LINE ของคุณทันที
+            <p style={{ fontSize: "14px", color: "var(--t2)", lineHeight: "1.6", margin: "0 0 24px 0", padding: "0 10px" }}>
+              ระบบได้ผูกบัญชี LINE ของคุณกับข้อมูลห้องพักเรียบร้อยแล้ว ต่อจากนี้บิลแจ้งหนี้ประจำเดือนและใบเสร็จรับเงินจะถูกส่งถึงคุณผ่านแชท LINE ทันที
             </p>
             <button 
-              onClick={() => router.push(`/tenant/home?key=${roomKey}`)}
+              onClick={() => {
+                const redirectPath = searchParams.get("redirect") || `/tenant/home?key=${roomKey}`;
+                router.push(redirectPath);
+              }}
+              className="btn bp"
               style={{
-                background: "linear-gradient(45deg, #11998e 0%, #38ef7d 100%)",
-                border: "none",
-                borderRadius: "14px",
-                color: "#ffffff",
+                width: "100%",
                 padding: "12px 24px",
                 fontSize: "14px",
-                fontWeight: "700",
-                cursor: "pointer",
-                width: "100%",
-                boxShadow: "0 8px 16px rgba(56, 239, 125, 0.25)"
+                fontWeight: "700"
               }}
             >
-              เข้าสู่หน้าแรกบิลของฉัน
+              เข้าสู่บริการของผู้เช่า
             </button>
           </div>
         ) : (
@@ -289,24 +283,24 @@ export default function TenantBindLinePage() {
                 <div style={{
                   width: "40px",
                   height: "40px",
-                  border: "3px solid rgba(255,255,255,0.1)",
-                  borderTop: "3px solid #38ef7d",
+                  border: "3px solid var(--border)",
+                  borderTop: "3px solid var(--green)",
                   borderRadius: "50%",
                   animation: "spin 1s linear infinite",
                   margin: "0 auto 10px auto"
                 }}></div>
-                <div style={{ fontSize: "13px", color: "#94a3b8" }}>กำลังดึงข้อมูล LINE...</div>
+                <div style={{ fontSize: "13px", color: "var(--t3)" }}>กำลังดึงข้อมูล LINE...</div>
               </div>
             ) : lineUser ? (
               <div style={{
-                background: "rgba(255,255,255,0.04)",
+                background: "var(--s2)",
                 padding: "14px",
-                borderRadius: "16px",
+                borderRadius: "var(--r)",
                 marginBottom: "24px",
                 display: "flex",
                 alignItems: "center",
                 gap: "12px",
-                border: "1px solid rgba(255,255,255,0.06)",
+                border: "1px solid var(--border)",
                 textAlign: "left"
               }}>
                 <img 
@@ -316,13 +310,13 @@ export default function TenantBindLinePage() {
                     width: "48px",
                     height: "48px",
                     borderRadius: "50%",
-                    border: "2px solid #38ef7d",
-                    background: "rgba(255,255,255,0.1)"
+                    border: "2px solid var(--green)",
+                    background: "var(--surface)"
                   }}
                 />
                 <div style={{ flex: 1, overflow: "hidden" }}>
-                  <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: "600" }}>เชื่อมต่อกับบัญชี LINE</div>
-                  <div style={{ fontSize: "15px", fontWeight: "700", color: "#ffffff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: "11px", color: "var(--t2)", fontWeight: "600" }}>บัญชี LINE ที่เชื่อมต่อ</div>
+                  <div style={{ fontSize: "15px", fontWeight: "700", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {lineUser.displayName}
                   </div>
                 </div>
@@ -332,24 +326,24 @@ export default function TenantBindLinePage() {
             {/* Simulation controls */}
             {isSimulation && lineUser && (
               <div style={{
-                background: "rgba(255,255,255,0.03)",
+                background: "var(--s2)",
                 padding: "12px",
-                borderRadius: "12px",
+                borderRadius: "var(--r)",
                 fontSize: "12px",
                 marginBottom: "20px",
                 textAlign: "left",
-                border: "1px dashed rgba(255,255,255,0.1)"
+                border: "1px dashed var(--border)"
               }}>
-                <label style={{ display: "block", color: "#94a3b8", marginBottom: "4px" }}>จำลอง LINE User ID:</label>
+                <label style={{ display: "block", color: "var(--t2)", marginBottom: "4px" }}>จำลอง LINE User ID:</label>
                 <input 
                   type="text" 
                   value={customLineId || lineUser.userId}
                   onChange={(e) => setCustomLineId(e.target.value)}
                   placeholder="ป้อน Line ID ทดสอบ"
                   style={{
-                    background: "rgba(0,0,0,0.2)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "#fff",
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text)",
                     padding: "4px 8px",
                     width: "100%",
                     boxSizing: "border-box",
@@ -367,27 +361,21 @@ export default function TenantBindLinePage() {
                 display: "block",
                 fontSize: "13.5px",
                 fontWeight: "600",
-                color: "#cbd5e1",
+                color: "var(--text)",
                 marginBottom: "8px"
               }}>
-                รหัสยืนยันตัวตนเข้าห้องพัก (Verification Code)
+                รหัสเข้าใช้งานห้องพัก (Room Key)
               </label>
               <input 
                 type="text"
                 maxLength={36}
                 value={roomKey}
                 onChange={(e) => handleKeyInput(e.target.value)}
-                placeholder="กรอกรหัสยืนยัน 8 หลัก หรือ 36 หลัก"
+                placeholder="กรอกรหัสเข้าใช้งานห้องพัก 36 หลัก"
                 disabled={binding}
+                className="inp"
                 style={{
                   width: "100%",
-                  background: "rgba(0, 0, 0, 0.25)",
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
-                  borderRadius: "12px",
-                  padding: "12px 14px",
-                  fontSize: "14px",
-                  color: "#ffffff",
-                  boxSizing: "border-box",
                   fontFamily: "monospace",
                   letterSpacing: "0.2px",
                   outline: "none"
@@ -398,8 +386,8 @@ export default function TenantBindLinePage() {
             {/* DYNAMIC RESOLVED ROOM INFO */}
             {resolvingRoom && (
               <div style={{
-                background: "rgba(255,255,255,0.03)",
-                borderRadius: "14px",
+                background: "var(--s2)",
+                borderRadius: "var(--r)",
                 padding: "16px",
                 marginBottom: "20px",
                 display: "flex",
@@ -410,39 +398,39 @@ export default function TenantBindLinePage() {
                 <div style={{
                   width: "18px",
                   height: "18px",
-                  border: "2px solid rgba(255,255,255,0.1)",
-                  borderTop: "2px solid #38ef7d",
+                  border: "2px solid var(--border)",
+                  borderTop: "2px solid var(--green)",
                   borderRadius: "50%",
                   animation: "spin 1s linear infinite"
                 }}></div>
-                <span style={{ fontSize: "13.5px", color: "#94a3b8" }}>กำลังดึงข้อมูลห้องพัก...</span>
+                <span style={{ fontSize: "13.5px", color: "var(--t3)" }}>กำลังดึงข้อมูลห้องพัก...</span>
               </div>
             )}
 
             {resolvedRoom && (
               <div style={{
-                background: "rgba(56, 239, 125, 0.08)",
-                border: "1px solid rgba(56, 239, 125, 0.2)",
-                borderRadius: "16px",
+                background: "var(--gl)",
+                border: "1px solid var(--gm)",
+                borderRadius: "var(--r)",
                 padding: "18px",
                 marginBottom: "24px",
                 textAlign: "left"
               }}>
-                <div style={{ fontSize: "11px", fontWeight: "700", color: "#38ef7d", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                <div style={{ fontSize: "11px", fontWeight: "700", color: "var(--green)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                   ✓ ข้อมูลห้องพักที่พบ
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13.5px" }}>
-                    <span style={{ color: "#94a3b8" }}>หอพัก</span>
-                    <strong style={{ color: "#ffffff" }}>{resolvedRoom.dorm_name}</strong>
+                    <span style={{ color: "var(--t2)" }}>หอพัก</span>
+                    <strong style={{ color: "var(--text)" }}>{resolvedRoom.dorm_name}</strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13.5px" }}>
-                    <span style={{ color: "#94a3b8" }}>หมายเลขห้อง</span>
-                    <strong style={{ color: "#ffffff" }}>ห้อง {resolvedRoom.room_number}</strong>
+                    <span style={{ color: "var(--t2)" }}>หมายเลขห้อง</span>
+                    <strong style={{ color: "var(--text)" }}>ห้อง {resolvedRoom.room_number}</strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13.5px" }}>
-                    <span style={{ color: "#94a3b8" }}>ผู้เช่า</span>
-                    <strong style={{ color: "#ffffff" }}>{resolvedRoom.tenant_name}</strong>
+                    <span style={{ color: "var(--t2)" }}>ผู้เช่า</span>
+                    <strong style={{ color: "var(--text)" }}>{resolvedRoom.tenant_name}</strong>
                   </div>
                 </div>
               </div>
@@ -451,12 +439,12 @@ export default function TenantBindLinePage() {
             {/* ERROR MSG */}
             {errorMsg && (
               <div style={{
-                background: "rgba(239, 68, 68, 0.08)",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                borderRadius: "12px",
+                background: "var(--rl)",
+                border: "1px solid var(--red)",
+                borderRadius: "var(--r)",
                 padding: "12px",
                 fontSize: "13px",
-                color: "#f87171",
+                color: "var(--red)",
                 textAlign: "left",
                 marginBottom: "20px",
                 lineHeight: "1.4"
@@ -469,27 +457,20 @@ export default function TenantBindLinePage() {
             <button
               onClick={handleBind}
               disabled={binding || resolvingRoom || !resolvedRoom || !lineUser}
+              className="btn bp"
               style={{
                 width: "100%",
-                background: (!resolvedRoom || !lineUser) 
-                  ? "rgba(255,255,255,0.06)" 
-                  : "linear-gradient(45deg, #11998e 0%, #38ef7d 100%)",
-                color: (!resolvedRoom || !lineUser) ? "#64748b" : "#ffffff",
-                border: "none",
-                borderRadius: "14px",
                 padding: "14px 20px",
                 fontSize: "15px",
                 fontWeight: "700",
-                cursor: (!resolvedRoom || !lineUser || binding) ? "not-allowed" : "pointer",
-                boxShadow: (!resolvedRoom || !lineUser) ? "none" : "0 8px 20px rgba(56, 239, 125, 0.2)",
-                transition: "all 0.2s ease"
+                cursor: (!resolvedRoom || !lineUser || binding) ? "not-allowed" : "pointer"
               }}
             >
               {binding ? "กำลังเชื่อมต่อข้อมูล..." : "ยืนยันการเชื่อมต่อ LINE"}
             </button>
 
             {resolvedRoom && (
-              <div style={{ marginTop: "14px", fontSize: "12.5px", color: "#64748b" }}>
+              <div style={{ marginTop: "14px", fontSize: "12.5px", color: "var(--t3)" }}>
                 * เมื่อเชื่อมต่อแล้ว บัญชีไลน์ด้านบนจะผูกเข้ากับห้องนี้ทันที
               </div>
             )}
